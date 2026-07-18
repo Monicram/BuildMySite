@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-obsidian-900 text-obsidian-100 font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    @apply bg-gold-500 text-obsidian-900;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-obsidian-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gold-600 rounded-full;
+  }
+}
+
+@layer components {
+  .gold-text {
+    background: linear-gradient(135deg, #B8860B 0%, #D4AF37 40%, #F5DC87 60%, #D4AF37 80%, #B8860B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gold-border {
+    @apply border border-gold-600/40;
+  }
+
+  .gold-btn {
+    @apply relative overflow-hidden bg-gold-gradient text-obsidian-900 font-semibold px-8 py-3.5 rounded-sm
+           transition-all duration-300 hover:shadow-gold-lg hover:scale-[1.02] active:scale-[0.98];
+  }
+
+  .ghost-btn {
+    @apply border border-gold-600 text-gold-400 px-8 py-3.5 rounded-sm font-medium
+           transition-all duration-300 hover:bg-gold-600/10 hover:text-gold-300;
+  }
+
+  .section-label {
+    @apply text-gold-500 text-xs font-semibold tracking-[0.25em] uppercase;
+  }
+
+  .card-dark {
+    @apply bg-obsidian-800 border border-obsidian-700 rounded-sm;
+  }
+
+  .input-dark {
+    @apply w-full bg-obsidian-700 border border-obsidian-600 rounded-sm px-4 py-3 text-obsidian-100
+           placeholder-obsidian-400 focus:outline-none focus:border-gold-500 transition-colors duration-200;
+  }
+
+  .select-dark {
+    @apply w-full bg-obsidian-700 border border-obsidian-600 rounded-sm px-4 py-3 text-obsidian-100
+           focus:outline-none focus:border-gold-500 transition-colors duration-200 appearance-none;
+  }
+
+  .checkbox-gold {
+    @apply w-5 h-5 rounded-sm border border-obsidian-500 bg-obsidian-700 checked:bg-gold-600 checked:border-gold-600
+           cursor-pointer accent-gold-500;
+  }
+}
+
+  /* Modal animations */
+  .animate-modal-up {
+    animation: modalUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(212,175,55,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212,175,55,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+@keyframes modalUp {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Ensure modals sit above everything */
+.z-\[100\] {
+  z-index: 100;
+}
