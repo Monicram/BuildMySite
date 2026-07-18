@@ -34,7 +34,6 @@ cd BuildMySite
 Frontend
 
 ```bash
-cd client
 npm install
 npm run dev
 ```
@@ -61,7 +60,6 @@ PORT=5000
 ```
 BuildMySite/
 │
-├── client/
 ├── server/
 ├── README.md
 ```
