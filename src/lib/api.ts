@@ -39,6 +39,17 @@ export interface DiscoveryBooking {
   notes?: string;
 }
 
+export interface TimeRange {
+  start: string;
+  end: string;
+}
+
+export interface AvailabilityResponse {
+  dayDisabled: boolean;
+  disabledRanges: TimeRange[];
+  bookedRanges: TimeRange[];
+}
+
 // ─── API Calls ─────────────────────────────────────────────────────────────────
 
 /**
@@ -61,6 +72,15 @@ export const submitBooking = async (payload: DiscoveryBooking): Promise<void> =>
   if (!response.data.success) {
     throw new Error(response.data.message || 'Failed to submit booking.');
   }
+};
+
+/**
+ * Fetch availability for a specific date
+ * GET /api/availability/check?date=YYYY-MM-DD
+ */
+export const fetchAvailability = async (date: string): Promise<AvailabilityResponse> => {
+  const response = await api.get(`/availability/check?date=${date}`);
+  return response.data;
 };
 
 export default api;

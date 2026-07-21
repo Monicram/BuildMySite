@@ -17,11 +17,11 @@ const featureOptions = [
 
 const pageOptions = ['1–3', '4–6', '7–10', '10+', "I'm not sure"];
 const budgetOptions = [
-  'Under ₹40,000',
+  'Under ₹20,000',
+  '₹20,000–₹40,000',
   '₹40,000–₹80,000',
   '₹80,000–₹2,00,000',
-  '₹2,00,000–₹4,00,000',
-  '₹4,00,000+',
+  '₹2,00,000+',
   "I'm not sure yet",
 ];
 

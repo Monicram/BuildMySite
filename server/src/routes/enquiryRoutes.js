@@ -1,4 +1,6 @@
-const router = require("express").Router();
+const express = require("express");
+const router = express.Router();
+
 const {
   createEnquiry,
   getAllEnquiries,
@@ -7,18 +9,19 @@ const {
   deleteEnquiry,
 } = require("../controllers/enquiryController");
 
-// POST   /api/enquiries       — Submit a new website enquiry
-// GET    /api/enquiries       — Get all enquiries
-router.route("/")
-  .post(createEnquiry)
-  .get(getAllEnquiries);
+// Create a new enquiry
+router.post("/", createEnquiry);
 
-// GET    /api/enquiries/:id   — Get single enquiry
-// PUT    /api/enquiries/:id   — Update enquiry
-// DELETE /api/enquiries/:id   — Delete enquiry
-router.route("/:id")
-  .get(getEnquiryById)
-  .put(updateEnquiry)
-  .delete(deleteEnquiry);
+// Get all enquiries
+router.get("/", getAllEnquiries);
+
+// Get a single enquiry by ID
+router.get("/:id", getEnquiryById);
+
+// Update an enquiry
+router.put("/:id", updateEnquiry);
+
+// Delete an enquiry
+router.delete("/:id", deleteEnquiry);
 
 module.exports = router;

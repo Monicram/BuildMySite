@@ -13,10 +13,16 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query-devtools": "^5.101.2",
     "axios": "^1.7.7",
+    "framer-motion": "^12.42.2",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.82.0",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

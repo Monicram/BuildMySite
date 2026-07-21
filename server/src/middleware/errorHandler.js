@@ -1,37 +1,37 @@
 /**
- * Centralized async error handler middleware for Express.
- * Catches errors passed via next(err) from async controllers.
+ * Global Error Handler Middleware
  */
-const errorHandler = (err, req, res, next) => { // eslint-disable-line no-unused-vars
-  console.error(`[ERROR] ${err.message}`);
+const errorHandler = (err, req, res, next) => {
+  console.error("[ERROR]", err);
 
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
 
-  // Mongoose Validation Error
-  if (err.name === "ValidationError") {
+  // PostgreSQL duplicate key error
+  if (err.code === "23505") {
     statusCode = 400;
-    const messages = Object.values(err.errors).map((e) => e.message);
-    message = messages.join(", ");
+    message = "Duplicate record already exists.";
   }
 
-  // Mongoose Duplicate Key Error
-  if (err.code === 11000) {
+  // PostgreSQL foreign key violation
+  if (err.code === "23503") {
     statusCode = 400;
-    const field = Object.keys(err.keyValue)[0];
-    message = `Duplicate value for field: ${field}.`;
+    message = "Invalid reference data.";
   }
 
-  // Mongoose Bad ObjectId
-  if (err.name === "CastError") {
+  // PostgreSQL invalid input
+  if (err.code === "22P02") {
     statusCode = 400;
-    message = `Invalid ID format: ${err.value}`;
+    message = "Invalid input.";
   }
 
   res.status(statusCode).json({
     success: false,
     message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(process.env.NODE_ENV === "development" && {
+      error: err.message,
+      stack: err.stack,
+    }),
   });
 };
 

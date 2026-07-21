@@ -1,24 +1,25 @@
-const mongoose = require("mongoose");
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-    });
-    console.log(`✅  MongoDB Connected: ${conn.connection.host}`);
+    const client = await pool.connect();
+    console.log("✅ PostgreSQL Connected");
+    client.release();
   } catch (err) {
-    console.error(`❌  MongoDB Connection Error: ${err.message}`);
+    console.error(`❌ PostgreSQL Connection Error: ${err.message}`);
     process.exit(1);
   }
 };
 
-// Handle connection events
-mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️   MongoDB disconnected. Attempting to reconnect...");
-});
-
-mongoose.connection.on("reconnected", () => {
-  console.log("✅  MongoDB reconnected.");
-});
-
-module.exports = connectDB;
+module.exports = {
+  pool,
+  connectDB,
+};

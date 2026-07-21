@@ -7,7 +7,7 @@ const tiers = [
     tagline: 'Launch fast, look great.',
     price: '₹19,999',
     period: 'one-time',
-    monthlyNote: '+ ₹2,499/mo hosting & maintenance',
+    monthlyNote: '+ ₹1,499/mo hosting & maintenance',
     description: 'Perfect for solo founders and small businesses launching their first professional web presence.',
     pages: 'Up to 4 pages',
     features: [
@@ -30,7 +30,7 @@ const tiers = [
     tagline: 'More pages, more power.',
     price: '₹39,999',
     period: 'one-time',
-    monthlyNote: '+ ₹3,999/mo hosting & maintenance',
+    monthlyNote: '+ ₹2,999/mo hosting & maintenance',
     description: 'Ideal for growing businesses that need booking systems, blog, and richer customer journeys.',
     pages: 'Up to 8 pages',
     features: [
@@ -54,7 +54,7 @@ const tiers = [
     tagline: 'Scale without limits.',
     price: '₹69,999',
     period: 'one-time',
-    monthlyNote: '+ ₹5,999/mo managed support',
+    monthlyNote: '+ ₹4,599/mo managed support',
     description: 'For ambitious businesses needing e-commerce, custom integrations, and full-service management.',
     pages: '10+ pages',
     features: [
@@ -169,10 +169,10 @@ export default function Pricing() {
         {/* Add-ons note */}
         <div className="mt-14 text-center card-dark p-8 rounded-sm">
           <p className="text-obsidian-300 text-sm mb-2">
-            Need something specific? Add-ons available: extra pages from <span className="text-gold-400">₹6,299</span>,
-            logo design from <span className="text-gold-400">₹12,499</span>,
-            WhatsApp business automation from <span className="text-gold-400">₹7,999</span>,
-            and priority 48-hour builds from <span className="text-gold-400">₹16,999</span>.
+            Need something specific? Add-ons available: extra pages from <span className="text-gold-400">₹4,299</span>,
+            logo design from <span className="text-gold-400">₹7,499</span>,
+            WhatsApp business automation from <span className="text-gold-400">₹6,999</span>,
+            and priority 48-hour builds from <span className="text-gold-400">₹14,999</span>.
           </p>
           <a href="#book" className="text-gold-400 hover:text-gold-300 text-sm font-medium underline underline-offset-2 transition-colors">
             Talk to us about a fully custom quote →

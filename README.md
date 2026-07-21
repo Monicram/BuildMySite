@@ -1,69 +1,92 @@
 # BuildMySite
 
-BuildMySite is a modern full-stack website development platform that allows users to browse templates, submit project enquiries, and manage website development services.
-
-## Features
-
-- Modern responsive UI
-- Website templates
-- Contact & enquiry form
-- MongoDB database integration
-- React + TypeScript frontend
-- Node.js + Express backend
+BuildMySite is a modern full-stack web development platform designed for businesses to showcase services, manage client enquiries, and schedule discovery calls through an intuitive and responsive interface. It also includes a secure admin dashboard for managing bookings, enquiries, and website content.
 
 ## Tech Stack
 
+**Frontend**
 - React
 - TypeScript
+- Vite
 - Tailwind CSS
+
+**Backend**
 - Node.js
 - Express.js
-- MongoDB
 
-## Installation
+**Database**
+- PostgreSQL
 
-### Clone the repository
+## Getting Started
+
+### Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Monicram/BuildMySite.git
 cd BuildMySite
 ```
 
-### Install dependencies
+### Install Dependencies
 
 Frontend
 
 ```bash
+cd client
 npm install
-npm run dev
 ```
 
 Backend
 
 ```bash
-cd server
+cd ../server
 npm install
+```
+
+### Configure Environment Variables
+
+Create a `.env` file inside the `server` folder and add your database and email configuration.
+
+### Run the Project
+
+Backend
+
+```bash
+cd server
 npm run dev
 ```
 
-## Environment Variables
+Frontend
 
-Create a `.env` file inside the `server` folder.
-
-```env
-MONGODB_URI=your_mongodb_connection_string
-PORT=5000
+```bash
+cd client
+npm run dev
 ```
 
-## Folder Structure
+## Project Structure
 
-```
+```text
 BuildMySite/
-│
+├── client/
 ├── server/
 ├── README.md
+└── package.json
 ```
+
+## Features
+
+- Responsive user interface
+- Discovery call booking
+- Admin dashboard
+- PostgreSQL database integration
+- Email notifications
+- Dark and light mode support
+
+## License
+
+This project is created for learning and portfolio purposes.
 
 ## Author
 
-Monica R
+**Monica R**
+
+GitHub: https://github.com/Monicram

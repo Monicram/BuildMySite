@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, X, Globe } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 const links = [
   { label: 'Templates',   href: '#templates' },
@@ -53,17 +54,23 @@ export default function Nav() {
           ))}
         </nav>
 
-        <a href="#book" className="hidden md:inline-flex gold-btn text-sm py-2.5 px-6">
-          Book a Call
-        </a>
+        <div className="hidden md:flex items-center gap-4">
+          <ThemeToggle />
+          <a href="#book" className="gold-btn text-sm py-2.5 px-6">
+            Book a Call
+          </a>
+        </div>
 
         {/* Mobile toggle */}
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="md:hidden text-obsidian-300 hover:text-gold-400 transition-colors"
-        >
-          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="md:hidden flex items-center gap-4">
+          <ThemeToggle />
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="text-obsidian-300 hover:text-gold-400 transition-colors"
+          >
+            {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

@@ -1,59 +1,68 @@
-import { Quote, Star } from 'lucide-react';
-import { useState } from 'react';
+import { Quote, Star, Loader2, Plus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import api from '../lib/api';
 
-const reviews = [
-  {
-    name: 'James Whitfield',
-    role: 'Founder',
-    company: 'Meridian Law Group',
-    avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: 'BuildMySite completely transformed how clients find us online. The team understood our brand from day one — professional, premium, and completely jargon-free throughout. Our enquiry volume tripled within 3 months of launch.',
-  },
-  {
-    name: 'Priya Sharma',
-    role: 'Owner',
-    company: 'Luma Skin Studio',
-    avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: 'I had no idea where to start — they asked me just a handful of questions and within a week I had a stunning site that my clients constantly compliment. The online booking system alone has saved me hours every week.',
-  },
-  {
-    name: 'Oliver Tracey',
-    role: 'Co-founder',
-    company: 'Nomad & Co.',
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: 'We went from selling at markets to ₹68 lakh online revenue in our first year — the site they built was a huge part of that. The e-commerce setup was seamless and the post-launch support was phenomenal.',
-  },
-  {
-    name: 'Amara Osei',
-    role: 'Operations Director',
-    company: 'The Copper Kettle',
-    avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: 'Table reservations used to be a chaos of phone calls and lost bookings. Our new site handles it all automatically — and the design reflects the elegance of our restaurant perfectly. Worth every penny.',
-  },
-  {
-    name: 'Daniel Krebs',
-    role: 'CEO',
-    company: 'Orion Analytics',
-    avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: 'As a SaaS founder I needed a landing page that converted — not just looked pretty. BuildMySite nailed both. Our trial sign-up rate more than doubled. The discovery call process set exactly the right expectations.',
-  },
-  {
-    name: 'Hannah Cole',
-    role: 'Personal Trainer & Coach',
-    company: 'HC Fitness',
-    avatar: 'https://images.pexels.com/photos/1181424/pexels-photo-1181424.jpeg?auto=compress&cs=tinysrgb&w=150',
-    rating: 5,
-    quote: "I was worried I'd be out of my depth dealing with a web agency. BuildMySite were the opposite of what I feared — patient, plain-speaking, and brilliant. My website genuinely feels like me, and bookings are up 80%.",
-  },
-];
+type Review = {
+  id: number;
+  name: string;
+  role: string | null;
+  company: string | null;
+  photo_url: string | null;
+  rating: number;
+  message: string;
+};
 
 export default function Testimonials() {
-  const [active, setActive] = useState(0);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Form state
+  const [form, setForm] = useState({ name: '', company: '', role: '', rating: 5, message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/reviews')
+      .then(res => {
+        setReviews(res.data.data || []);
+      })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.message) {
+      setError('Name and message are required.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.post('/reviews', form);
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setSubmitSuccess(false);
+        setForm({ name: '', company: '', role: '', rating: 5, message: '' });
+      }, 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to submit review.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="py-28 bg-obsidian-950 flex justify-center items-center">
+        <Loader2 className="w-8 h-8 text-gold-500 animate-spin" />
+      </section>
+    );
+  }
 
   return (
     <section id="reviews" className="py-28 bg-obsidian-950 bg-grid-pattern relative overflow-hidden">
@@ -67,68 +76,135 @@ export default function Testimonials() {
           <h2 className="font-serif text-4xl lg:text-5xl font-bold text-obsidian-50 mb-5">
             Trusted by <span className="gold-text italic">Real Businesses</span>
           </h2>
-          <p className="text-obsidian-400 max-w-xl mx-auto text-lg leading-relaxed">
+          <p className="text-obsidian-400 max-w-xl mx-auto text-lg leading-relaxed mb-6">
             Don't just take our word for it. Here's what our clients say after working with us.
           </p>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gold-600/40 text-gold-400 hover:bg-gold-600/10 transition-colors text-sm font-medium"
+          >
+            <Plus size={16} /> Share Your Experience
+          </button>
         </div>
 
-        {/* Featured review */}
-        <div className="card-dark border-gold-600/30 p-8 lg:p-12 mb-8 relative overflow-hidden">
-          <Quote className="absolute top-6 right-8 w-20 h-20 text-gold-600/10" />
-          <div className="flex flex-col md:flex-row md:items-start gap-8">
-            <div className="flex-shrink-0 flex flex-col items-center md:items-start gap-3">
-              <img
-                src={reviews[active].avatar}
-                alt={reviews[active].name}
-                className="w-16 h-16 rounded-sm object-cover border-2 border-gold-600/40"
-              />
-              <div className="text-center md:text-left">
-                <p className="font-semibold text-obsidian-100">{reviews[active].name}</p>
-                <p className="text-obsidian-400 text-sm">{reviews[active].role}</p>
-                <p className="text-gold-500 text-sm font-medium">{reviews[active].company}</p>
-              </div>
-              <div className="flex gap-1">
-                {[...Array(reviews[active].rating)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-gold-500 text-gold-500" />
-                ))}
-              </div>
+        {reviews.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reviews.map((review) => (
+                <div key={review.id} className="card-dark border-gold-600/20 p-8 flex flex-col h-full hover:border-gold-600/40 transition-colors relative">
+                  <Quote className="absolute top-6 right-6 w-8 h-8 text-gold-600/10" />
+                  
+                  <div className="flex gap-1 justify-center mb-6">
+                    {[...Array(review.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-gold-500 text-gold-500" />
+                    ))}
+                  </div>
+
+                  <blockquote className="flex-1 text-center mb-8">
+                    <p className="text-obsidian-200 text-base leading-relaxed font-light italic">
+                      "{review.message}"
+                    </p>
+                  </blockquote>
+
+                  <div className="text-center mt-auto pt-6 border-t border-obsidian-800">
+                    <p className="font-semibold text-obsidian-100">{review.name}</p>
+                    {(review.role || review.company) && (
+                      <p className="text-obsidian-400 text-sm mt-1">
+                        {review.role}{review.role && review.company ? ', ' : ''}{review.company}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            <blockquote className="flex-1">
-              <p className="text-obsidian-200 text-lg lg:text-xl leading-relaxed font-light italic">
-                "{reviews[active].quote}"
-              </p>
-            </blockquote>
-          </div>
-        </div>
-
-        {/* Reviewer thumbnails */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {reviews.map((r, i) => (
-            <button
-              key={r.name}
-              onClick={() => setActive(i)}
-              className={`flex flex-col items-center gap-2 p-3 rounded-sm border transition-all duration-200 ${
-                active === i
-                  ? 'border-gold-500 bg-obsidian-800'
-                  : 'border-obsidian-700 bg-obsidian-800/50 hover:border-gold-600/40'
-              }`}
+            
+            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
+              <div className="flex gap-1">
+                {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-gold-500 text-gold-500" />)}
+              </div>
+              <span className="text-obsidian-300 text-sm">
+                <span className="text-obsidian-50 font-semibold">5.0 / 5.0</span> — averaged across {reviews.length}+ client projects
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-16 px-6 card-dark border-gold-600/20 max-w-2xl mx-auto">
+            <Star className="w-12 h-12 text-gold-500/20 mx-auto mb-4" />
+            <h3 className="text-xl font-serif font-bold text-obsidian-100 mb-2">Be Our First Success Story</h3>
+            <p className="text-obsidian-400 mb-6 max-w-md mx-auto">
+              We're building something special and would love for you to be part of our journey. Start your project with us today!
+            </p>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full gold-btn text-sm font-medium transition-transform hover:scale-105"
             >
-              <img src={r.avatar} alt={r.name} className="w-10 h-10 rounded-sm object-cover" />
-              <p className="text-obsidian-400 text-xs text-center leading-tight">{r.name.split(' ')[0]}</p>
+              <Plus size={16} /> Share Your Experience
             </button>
-          ))}
-        </div>
-
-        {/* Overall rating */}
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
-          <div className="flex gap-1">
-            {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-gold-500 text-gold-500" />)}
           </div>
-          <span className="text-obsidian-300 text-sm">
-            <span className="text-obsidian-50 font-semibold">5.0 / 5.0</span> — averaged across 200+ client projects
-          </span>
-        </div>
+        )}
       </div>
+
+      {/* Review Submission Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-obsidian-950/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="relative bg-obsidian-900 border border-obsidian-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-obsidian-400 hover:text-white">
+              <X size={20} />
+            </button>
+            <h2 className="text-2xl font-serif font-bold text-obsidian-50 mb-2">Leave a Review</h2>
+            <p className="text-sm text-obsidian-400 mb-6">How was your experience working with us?</p>
+            
+            {submitSuccess ? (
+              <div className="text-center py-10 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
+                  <Star className="w-8 h-8 text-emerald-400 fill-emerald-400" />
+                </div>
+                <h3 className="text-xl font-bold text-obsidian-50">Thank You!</h3>
+                <p className="text-obsidian-400">Your review has been submitted and is pending approval.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-obsidian-400 mb-1.5">Name *</label>
+                    <input required className="input-dark w-full" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-obsidian-400 mb-1.5">Role (Optional)</label>
+                    <input className="input-dark w-full" placeholder="e.g. CEO" value={form.role} onChange={e => setForm({...form, role: e.target.value})} />
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-obsidian-400 mb-1.5">Company (Optional)</label>
+                    <input className="input-dark w-full" value={form.company} onChange={e => setForm({...form, company: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-obsidian-400 mb-1.5">Rating</label>
+                    <select className="select-dark w-full" value={form.rating} onChange={e => setForm({...form, rating: Number(e.target.value)})}>
+                      <option value={5}>5 Stars - Excellent</option>
+                      <option value={4}>4 Stars - Very Good</option>
+                      <option value={3}>3 Stars - Average</option>
+                      <option value={2}>2 Stars - Poor</option>
+                      <option value={1}>1 Star - Terrible</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-obsidian-400 mb-1.5">Your Experience *</label>
+                  <textarea required className="input-dark w-full resize-none h-24" value={form.message} onChange={e => setForm({...form, message: e.target.value})} />
+                </div>
+                {error && <p className="text-red-400 text-sm">{error}</p>}
+                <button type="submit" disabled={submitting} className="gold-btn w-full flex justify-center items-center py-3 mt-4">
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Review'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

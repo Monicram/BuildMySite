@@ -1,9 +1,18 @@
-const WebsiteEnquiry = require("../models/Enquiry");
+const pool = require("../models/Enquiry");
 
 // ─── Create Enquiry ────────────────────────────────────────────────────────────
 exports.createEnquiry = async (req, res, next) => {
   try {
-    const { name, email, phone, pages, features, support_needs, budget, notes } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      pages,
+      features,
+      support_needs,
+      budget,
+      notes,
+    } = req.body;
 
     if (!name || !email) {
       return res.status(400).json({
@@ -12,21 +21,28 @@ exports.createEnquiry = async (req, res, next) => {
       });
     }
 
-    const enquiry = await WebsiteEnquiry.create({
-      name,
-      email,
-      phone: phone || null,
-      pages: pages || null,
-      features: features || [],
-      support_needs: support_needs || {},
-      budget: budget || null,
-      notes: notes || null,
-    });
+    const result = await pool.query(
+      `INSERT INTO website_enquiries
+      (name,email,phone,pages,features,support_needs,budget,notes,status)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *`,
+      [
+        name,
+        email,
+        phone || null,
+        pages || null,
+        features || [],
+        support_needs || {},
+        budget || null,
+        notes || null,
+        "new",
+      ]
+    );
 
     res.status(201).json({
       success: true,
       message: "Enquiry submitted successfully.",
-      data: enquiry,
+      data: result.rows[0],
     });
   } catch (err) {
     next(err);
@@ -36,11 +52,14 @@ exports.createEnquiry = async (req, res, next) => {
 // ─── Get All Enquiries ─────────────────────────────────────────────────────────
 exports.getAllEnquiries = async (req, res, next) => {
   try {
-    const enquiries = await WebsiteEnquiry.find().sort({ createdAt: -1 });
+    const result = await pool.query(
+      "SELECT * FROM website_enquiries ORDER BY created_at DESC"
+    );
+
     res.status(200).json({
       success: true,
-      count: enquiries.length,
-      data: enquiries,
+      count: result.rows.length,
+      data: result.rows,
     });
   } catch (err) {
     next(err);
@@ -50,11 +69,22 @@ exports.getAllEnquiries = async (req, res, next) => {
 // ─── Get Single Enquiry ────────────────────────────────────────────────────────
 exports.getEnquiryById = async (req, res, next) => {
   try {
-    const enquiry = await WebsiteEnquiry.findById(req.params.id);
-    if (!enquiry) {
-      return res.status(404).json({ success: false, message: "Enquiry not found." });
+    const result = await pool.query(
+      "SELECT * FROM website_enquiries WHERE id=$1",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Enquiry not found.",
+      });
     }
-    res.status(200).json({ success: true, data: enquiry });
+
+    res.status(200).json({
+      success: true,
+      data: result.rows[0],
+    });
   } catch (err) {
     next(err);
   }
@@ -63,15 +93,59 @@ exports.getEnquiryById = async (req, res, next) => {
 // ─── Update Enquiry ────────────────────────────────────────────────────────────
 exports.updateEnquiry = async (req, res, next) => {
   try {
-    const enquiry = await WebsiteEnquiry.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+    const {
+      name,
+      email,
+      phone,
+      pages,
+      features,
+      support_needs,
+      budget,
+      notes,
+      status,
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE website_enquiries
+       SET
+       name=$1,
+       email=$2,
+       phone=$3,
+       pages=$4,
+       features=$5,
+       support_needs=$6,
+       budget=$7,
+       notes=$8,
+       status=$9,
+       updated_at=NOW()
+       WHERE id=$10
+       RETURNING *`,
+      [
+        name,
+        email,
+        phone,
+        pages,
+        features,
+        support_needs,
+        budget,
+        notes,
+        status,
+        req.params.id,
+      ]
     );
-    if (!enquiry) {
-      return res.status(404).json({ success: false, message: "Enquiry not found." });
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Enquiry not found.",
+      });
     }
-    res.status(200).json({ success: true, message: "Enquiry updated.", data: enquiry });
+
+    res.status(200).json({
+      success: true,
+      message: "Enquiry updated.",
+      data: result.rows[0],
+    });
   } catch (err) {
     next(err);
   }
@@ -80,11 +154,22 @@ exports.updateEnquiry = async (req, res, next) => {
 // ─── Delete Enquiry ────────────────────────────────────────────────────────────
 exports.deleteEnquiry = async (req, res, next) => {
   try {
-    const enquiry = await WebsiteEnquiry.findByIdAndDelete(req.params.id);
-    if (!enquiry) {
-      return res.status(404).json({ success: false, message: "Enquiry not found." });
+    const result = await pool.query(
+      "DELETE FROM website_enquiries WHERE id=$1 RETURNING *",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Enquiry not found.",
+      });
     }
-    res.status(200).json({ success: true, message: "Enquiry deleted successfully." });
+
+    res.status(200).json({
+      success: true,
+      message: "Enquiry deleted successfully.",
+    });
   } catch (err) {
     next(err);
   }

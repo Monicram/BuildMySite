@@ -1,7 +1,7 @@
 {
   "name": "buildmysite-server",
   "version": "1.0.0",
-  "description": "BuildMySite — Express + MongoDB REST API backend",
+  "description": "BuildMySite — Express + Postgres REST API backend",
   "author": "BuildMySite",
   "license": "MIT",
   "main": "src/server.js",
@@ -10,12 +10,20 @@
     "dev": "nodemon src/server.js",
     "test": "echo \"No tests configured yet\" && exit 0"
   },
-  "keywords": ["buildmysite", "express", "mongodb", "mongoose"],
+  "keywords": [
+    "buildmysite",
+    "express",
+    "mongodb",
+    "mongoose"
+  ],
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "mongoose": "^9.7.4"
+    "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
