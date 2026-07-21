@@ -31,14 +31,13 @@ cd BuildMySite
 Frontend
 
 ```bash
-cd client
 npm install
 ```
 
 Backend
 
 ```bash
-cd ../server
+cd server
 npm install
 ```
 
@@ -58,7 +57,6 @@ npm run dev
 Frontend
 
 ```bash
-cd client
 npm run dev
 ```
 
@@ -66,7 +64,6 @@ npm run dev
 
 ```text
 BuildMySite/
-├── client/
 ├── server/
 ├── README.md
 └── package.json
@@ -81,12 +78,7 @@ BuildMySite/
 - Email notifications
 - Dark and light mode support
 
-## License
-
-This project is created for learning and portfolio purposes.
 
 ## Author
 
 **Monica R**
-
-GitHub: https://github.com/Monicram
