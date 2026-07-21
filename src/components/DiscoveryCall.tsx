@@ -9,6 +9,7 @@ import {
   validateBookingTime,
 } from '../lib/availabilityUtils';
 import TimeScroller from './TimeScroller';
+import DatePicker from './DatePicker';
 
 const budgetRanges = [
   'Under ₹20,000',
@@ -79,21 +80,8 @@ export default function DiscoveryCall() {
 
   const set = (k: keyof Form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      const val = e.target.value;
-      if (k === 'preferred_date') {
-        if (val) {
-          const d = new Date(val);
-          if (d.getDay() === 0 || d.getDay() === 6) {
-            setError('Bookings are available only from Monday to Friday.');
-            setForm(p => ({ ...p, preferred_date: '' }));
-            return;
-          }
-        }
-        setError('');
-      } else if (k === 'preferred_time') {
-        setError('');
-      }
-      setForm(p => ({ ...p, [k]: val }));
+      setForm(p => ({ ...p, [k]: e.target.value }));
+      if (k === 'preferred_time') setError('');
     };
 
   const validateTime = (time: string, avail: AvailabilityResponse | null): string | null => {
@@ -272,14 +260,14 @@ export default function DiscoveryCall() {
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-obsidian-300 text-sm mb-2">Preferred Date <span className="text-gold-500">*</span></label>
-                    <input
-                      id="booking-date"
-                      className="input-dark"
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
+                    <DatePicker
                       value={form.preferred_date}
-                      onChange={set('preferred_date')}
-                      required
+                      onChange={(val) => {
+                        setForm(p => ({ ...p, preferred_date: val }));
+                        setError('');
+                      }}
+                      minDate={new Date().toISOString().split('T')[0]}
+                      disabledDays={(d) => d.getDay() === 0 || d.getDay() === 6}
                     />
                   </div>
                   <div>
