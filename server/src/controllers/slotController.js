@@ -14,11 +14,37 @@ const {
 // ─── Get All Slots with Stats (Virtually Generated) ──────────────────────────
 exports.getAllSlots = async (req, res, next) => {
   try {
+    const { startDate, endDate } = req.query;
     const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    let minD = new Date(today);
+    let maxD = new Date(today);
+    maxD.setDate(maxD.getDate() + 29); // Default 30 days including today
+
+    if (startDate) {
+      const parsedStart = new Date(startDate);
+      if (!isNaN(parsedStart.getTime())) minD = parsedStart;
+    }
+    if (endDate) {
+      const parsedEnd = new Date(endDate);
+      if (!isNaN(parsedEnd.getTime())) maxD = parsedEnd;
+    }
+
+    if (minD > maxD) {
+      return res.status(400).json({ success: false, message: "Start date must be before or equal to end date." });
+    }
+
+    // Limit to reasonable generation length (e.g. max 365 days)
+    const diffDays = Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 3600 * 24));
+    if (diffDays > 365) {
+      return res.status(400).json({ success: false, message: "Date range too large. Maximum is 365 days." });
+    }
+
     const dates = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
+    for (let i = 0; i <= diffDays; i++) {
+      const d = new Date(minD);
+      d.setDate(minD.getDate() + i);
       const dayOfWeek = d.getDay();
       // Skip Saturday (6) and Sunday (0)
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
@@ -30,13 +56,13 @@ exports.getAllSlots = async (req, res, next) => {
       return res.status(200).json({ success: true, count: 0, data: [], stats: { total: 0, available: 0, booked: 0, full: 0, disabled: 0 } });
     }
 
-    const minDate = dates[0];
-    const maxDate = dates[dates.length - 1];
+    const minDateStr = dates[0];
+    const maxDateStr = dates[dates.length - 1];
 
     // Fetch relevant overrides
     const overridesRes = await pool.query(
       `SELECT * FROM availability_overrides WHERE date >= $1 AND date <= $2`,
-      [minDate, maxDate]
+      [minDateStr, maxDateStr]
     );
     const overrides = overridesRes.rows;
 
@@ -49,9 +75,9 @@ exports.getAllSlots = async (req, res, next) => {
               ) AS preferred_end_time
        FROM discovery_bookings
        WHERE preferred_date >= $1 AND preferred_date <= $2
-         AND status IN ('pending', 'accepted')
+         AND status IN ('pending', 'accepted', 'rescheduled')
          AND preferred_time IS NOT NULL`,
-      [minDate, maxDate]
+      [minDateStr, maxDateStr]
     );
     const bookings = bookingsRes.rows;
 
@@ -60,9 +86,7 @@ exports.getAllSlots = async (req, res, next) => {
     const max_bookings = 1;
 
     dates.forEach(dateStr => {
-      // Find overrides for this date
       const dayOverrides = overrides.filter(o => {
-        // o.date is a Date object from node-postgres
         const d = new Date(o.date);
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         return d.toISOString().split('T')[0] === dateStr;
@@ -72,23 +96,19 @@ exports.getAllSlots = async (req, res, next) => {
         start: o.start_time.substring(0,5), end: o.end_time.substring(0,5)
       }));
 
-      // Find bookings for this date
       const dayBookings = bookings.filter(b => b.preferred_date === dateStr).map(b => ({
         start: b.preferred_time.substring(0,5), end: b.preferred_end_time.substring(0,5)
       }));
 
-      // Generate slots
       for (let mins = BUSINESS_START; mins <= LATEST_START; mins += SLOT_INTERVAL) {
         const startTimeStr = minutesToTime(mins);
         const endTimeStr = minutesToTime(mins + CALL_DURATION);
 
-        // Check if disabled
         let isDisabled = wholeDayDisabled;
         if (!isDisabled && rangeListOverlap(startTimeStr, endTimeStr, partialDisabled)) {
           isDisabled = true;
         }
 
-        // Calculate bookings overlapping this slot
         let booked_count = 0;
         dayBookings.forEach(b => {
           if (rangesOverlap(timeToMinutes(startTimeStr), timeToMinutes(endTimeStr), timeToMinutes(b.start), timeToMinutes(b.end))) {
@@ -114,7 +134,6 @@ exports.getAllSlots = async (req, res, next) => {
 
         stats.total++;
 
-        // Use a composite ID since it's virtual
         const idStr = `${dateStr}_${startTimeStr}`;
 
         allSlots.push({
@@ -151,7 +170,6 @@ exports.enableSlot = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Date, start time, and end time are required." });
     }
 
-    // Enabling a slot means deleting the corresponding availability_override
     const result = await pool.query(
       `DELETE FROM availability_overrides 
        WHERE date = $1 
@@ -183,7 +201,6 @@ exports.disableSlot = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Date, start time, and end time are required." });
     }
 
-    // Check if it's already disabled by overlapping override
     const overlapRes = await pool.query(
       `SELECT id FROM availability_overrides
        WHERE date = $1

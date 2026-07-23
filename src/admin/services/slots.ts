@@ -13,8 +13,11 @@ export interface Slot {
 }
 
 export const slotService = {
-  getAll: async (): Promise<{ data: Slot[]; stats: any }> => {
-    const { data } = await adminApi.get('/slots');
+  getAll: async ({ startDate, endDate }: { startDate?: string; endDate?: string } = {}): Promise<{ data: Slot[]; stats: any }> => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const { data } = await adminApi.get(`/slots?${params.toString()}`);
     return { data: data.data, stats: data.stats };
   },
 

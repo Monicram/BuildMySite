@@ -1,9 +1,11 @@
 // ============================================================
 // BuildMySite Admin — Slot Management
 // ============================================================
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Calendar as CalendarIcon, Clock, CheckCircle, Ban, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar as CalendarIcon, Clock, CheckCircle, Ban, Users, Eye, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import DataTable, { type Column } from '../components/DataTable';
 import { slotService, type Slot } from '../services/slots';
 import { formatDate } from '../utils';
@@ -26,13 +28,78 @@ const StatCard = ({ title, value, icon: Icon, colorClass }: { title: string; val
   </motion.div>
 );
 
+// ─── Toast Component ──────────────────────────────────────────────────────────
+const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: 20, scale: 0.9 }}
+    className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border ${
+      type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+    }`}
+  >
+    {type === 'success' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+    <p className="text-sm font-medium">{message}</p>
+    <button onClick={onClose} className="ml-2 hover:opacity-70 transition-opacity"><XCircle size={16} /></button>
+  </motion.div>
+);
+
+type DateRangeFilter = 'Today' | 'Tomorrow' | 'This Week' | 'Next 30 Days' | 'Custom';
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Slots = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('Next 30 Days');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const { startDate, endDate } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    let start = new Date(today);
+    let end = new Date(today);
+
+    if (dateRangeFilter === 'Today') {
+      end = new Date(today);
+    } else if (dateRangeFilter === 'Tomorrow') {
+      start.setDate(today.getDate() + 1);
+      end = new Date(start);
+    } else if (dateRangeFilter === 'This Week') {
+      // Assuming week ends on Sunday (+ (7 - dayOfWeek))
+      const day = today.getDay() || 7; 
+      end.setDate(today.getDate() + (7 - day));
+    } else if (dateRangeFilter === 'Next 30 Days') {
+      end.setDate(today.getDate() + 29);
+    } else if (dateRangeFilter === 'Custom') {
+      return { 
+        startDate: customStart || undefined, 
+        endDate: customEnd || undefined 
+      };
+    }
+
+    // Offset timezone correctly for formatting to YYYY-MM-DD
+    start.setMinutes(start.getMinutes() - start.getTimezoneOffset());
+    end.setMinutes(end.getMinutes() - end.getTimezoneOffset());
+
+    return {
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+    };
+  }, [dateRangeFilter, customStart, customEnd]);
 
   const { data: slotData, isLoading } = useQuery({
-    queryKey: ['slots'],
-    queryFn: slotService.getAll,
+    queryKey: ['slots', startDate, endDate],
+    queryFn: () => slotService.getAll({ startDate, endDate }),
+    refetchInterval: 10000, // Real-time sync every 10s
   });
 
   const slots = slotData?.data || [];
@@ -42,9 +109,10 @@ const Slots = () => {
     mutationFn: (payload: { date: string; start_time: string; end_time: string }) => slotService.enable(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['slots'] });
+      showToast('Slot enabled successfully.', 'success');
     },
     onError: (error: any) => {
-      alert(error.response?.data?.message || 'Failed to enable slot');
+      showToast(error.response?.data?.message || 'Failed to enable slot.', 'error');
     },
   });
 
@@ -52,9 +120,10 @@ const Slots = () => {
     mutationFn: (payload: { date: string; start_time: string; end_time: string }) => slotService.disable(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['slots'] });
+      showToast('Slot disabled successfully.', 'success');
     },
     onError: (error: any) => {
-      alert(error.response?.data?.message || 'Failed to disable slot');
+      showToast(error.response?.data?.message || 'Failed to disable slot.', 'error');
     },
   });
 
@@ -111,20 +180,18 @@ const Slots = () => {
     {
       key: 'id', label: 'Actions',
       render: row => (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              if (confirm(`Are you sure you want to ${row.is_disabled ? 'enable' : 'disable'} this slot?`)) {
-                const payload = {
-                  date: row.date,
-                  start_time: row.start_time,
-                  end_time: row.end_time,
-                };
-                if (row.is_disabled) {
-                  enableMutation.mutate(payload);
-                } else {
-                  disableMutation.mutate(payload);
-                }
+              const payload = {
+                date: row.date,
+                start_time: row.start_time,
+                end_time: row.end_time,
+              };
+              if (row.is_disabled) {
+                enableMutation.mutate(payload);
+              } else {
+                disableMutation.mutate(payload);
               }
             }}
             title={row.is_disabled ? "Enable Slot" : "Disable Slot"}
@@ -136,13 +203,21 @@ const Slots = () => {
           >
             {row.is_disabled ? <><CheckCircle size={14} /> Enable</> : <><Ban size={14} /> Disable</>}
           </button>
+          
+          <button
+            onClick={() => navigate(`/admin/bookings?date=${row.date}&time=${row.start_time}`)}
+            title="View Booking Details"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors flex items-center gap-1.5"
+          >
+            <Eye size={14} /> View
+          </button>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-10">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -152,6 +227,26 @@ const Slots = () => {
           <p className="text-sm text-obsidian-400 mt-0.5">
             Manage your daily availability slots and monitor booking capacities.
           </p>
+        </div>
+        
+        {/* Date Filter */}
+        <div className="flex items-center gap-3">
+          <select
+            value={dateRangeFilter}
+            onChange={(e) => setDateRangeFilter(e.target.value as DateRangeFilter)}
+            className="px-4 py-2 bg-obsidian-800 border border-obsidian-700 rounded-xl text-sm text-obsidian-200 focus:outline-none focus:border-gold-500 transition-colors"
+          >
+            {['Today', 'Tomorrow', 'This Week', 'Next 30 Days', 'Custom'].map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+          {dateRangeFilter === 'Custom' && (
+            <div className="flex items-center gap-2">
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="px-3 py-1.5 bg-obsidian-800 border border-obsidian-700 rounded-xl text-sm text-obsidian-200 focus:outline-none focus:border-gold-500" />
+              <span className="text-obsidian-500">to</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="px-3 py-1.5 bg-obsidian-800 border border-obsidian-700 rounded-xl text-sm text-obsidian-200 focus:outline-none focus:border-gold-500" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -170,11 +265,18 @@ const Slots = () => {
           columns={columns}
           data={slots}
           isLoading={isLoading}
-          searchKeys={['date', 'status'] as never[]}
-          pageSize={15}
-          emptyMessage="No working slots found."
+          searchKeys={['date', 'start_time', 'status'] as never[]}
+          filterOptions={[{ key: 'status' as never, label: 'All Statuses', options: ['Available', 'Booked', 'Full', 'Disabled'] }]}
+          pageSize={10}
+          emptyMessage="No working slots found for this date range."
         />
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -31,6 +31,8 @@ interface DataTableProps<T extends object> {
   emptyMessage?: string;
   actions?: (row: T) => React.ReactNode;
   isLoading?: boolean;
+  defaultSearch?: string;
+  defaultFilters?: Record<string, string>;
 }
 
 type SortDir = 'asc' | 'desc' | null;
@@ -44,13 +46,15 @@ function DataTable<T extends object>({
   emptyMessage = 'No records found.',
   actions,
   isLoading = false,
+  defaultSearch = '',
+  defaultFilters = {},
 }: DataTableProps<T>) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(defaultSearch);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>(defaultFilters);
 
   // Filter
   const filtered = useMemo(() => {
@@ -168,7 +172,7 @@ function DataTable<T extends object>({
             onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
             className="py-1 px-2 bg-obsidian-800 border border-obsidian-700 rounded text-xs text-obsidian-300 focus:outline-none focus:border-gold-500 transition-colors"
           >
-            {[10, 25, 50].map(n => (
+            {[10, 25, 50, 100].map(n => (
               <option key={n} value={n}>{n} / page</option>
             ))}
           </select>

@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar, Check, X, Trash2, Eye, RefreshCw, Clock } from 'lucide-react';
 import DataTable, { type Column } from '../components/DataTable';
 import { bookingService } from '../services/booking';
@@ -140,8 +141,11 @@ const BookingModal = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Bookings = () => {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<Booking | null>(null);
+
+  const defaultSearch = [searchParams.get('date'), searchParams.get('time')].filter(Boolean).join(' ');
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['bookings'],
@@ -246,8 +250,9 @@ const Bookings = () => {
           columns={columns}
           data={bookings}
           isLoading={isLoading}
-          searchKeys={['name', 'email', 'company', 'status'] as never[]}
+          searchKeys={['name', 'email', 'company', 'status', 'preferred_date', 'preferred_time'] as never[]}
           filterOptions={[{ key: 'status' as never, label: 'All Statuses', options: STATUSES }]}
+          defaultSearch={defaultSearch}
           pageSize={10}
           emptyMessage="No bookings yet."
           actions={row => {
