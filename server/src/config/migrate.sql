@@ -82,3 +82,14 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- 7. Create admin_slots table
+CREATE TABLE IF NOT EXISTS admin_slots (
+  id           SERIAL PRIMARY KEY,
+  date         DATE NOT NULL,
+  start_time   VARCHAR(10) NOT NULL,
+  end_time     VARCHAR(10) NOT NULL,
+  max_bookings INTEGER DEFAULT 1,
+  is_disabled  BOOLEAN DEFAULT FALSE,
+  created_at   TIMESTAMP DEFAULT NOW()
+);

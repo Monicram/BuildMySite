@@ -1,14 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, Loader2, Phone, Mail, Calendar, ChevronDown, AlertCircle } from 'lucide-react';
-import { submitBooking, fetchAvailability, DiscoveryBooking, AvailabilityResponse } from '../lib/api';
-import {
-  CALL_DURATION,
-  minutesToTime,
-  timeToMinutes,
-  rangesOverlap,
-  validateBookingTime,
-} from '../lib/availabilityUtils';
-import TimeScroller from './TimeScroller';
+import { CheckCircle, Loader2, Phone, Mail, Calendar, ChevronDown } from 'lucide-react';
+import { submitBooking, fetchAvailableSlots, DiscoveryBooking, AvailableSlot } from '../lib/api';
 import DatePicker from './DatePicker';
 
 const budgetRanges = [
@@ -51,7 +43,8 @@ export default function DiscoveryCall() {
   const [success, setSuccess]   = useState(false);
   const [error, setError]       = useState('');
 
-  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [slotsLoaded, setSlotsLoaded] = useState(false);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   useEffect(() => {
@@ -59,12 +52,22 @@ export default function DiscoveryCall() {
     const fetchAvail = () => {
       if (form.preferred_date) {
         setLoadingAvailability(true);
-        fetchAvailability(form.preferred_date)
-          .then(data => setAvailability(data))
-          .catch(() => setAvailability(null))
+        fetchAvailableSlots(form.preferred_date)
+          .then(data => {
+            setAvailableSlots(data);
+            setSlotsLoaded(true);
+            if (form.preferred_time && !data.find(s => s.start_time === form.preferred_time)) {
+              setForm(p => ({ ...p, preferred_time: '' }));
+            }
+          })
+          .catch(() => {
+            setAvailableSlots([]);
+            setSlotsLoaded(true);
+          })
           .finally(() => setLoadingAvailability(false));
       } else {
-        setAvailability(null);
+        setAvailableSlots([]);
+        setSlotsLoaded(false);
       }
     };
     
@@ -76,7 +79,7 @@ export default function DiscoveryCall() {
     }
     
     return () => clearInterval(interval);
-  }, [form.preferred_date]);
+  }, [form.preferred_date, form.preferred_time]);
 
   const set = (k: keyof Form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -84,26 +87,11 @@ export default function DiscoveryCall() {
       if (k === 'preferred_time') setError('');
     };
 
-  const validateTime = (time: string, avail: AvailabilityResponse | null): string | null => {
-    const baseError = validateBookingTime(time);
-    if (baseError) return baseError;
-
-    if (avail) {
-      if (avail.dayDisabled) {
-        return 'This date is fully disabled. Please choose another date.';
-      }
-
-      const timeStr = time.substring(0, 5);
-      const endTime = minutesToTime(timeToMinutes(timeStr) + CALL_DURATION);
-
-      if (rangesOverlap(timeStr, endTime, avail.disabledRanges)) {
-        return 'This time overlaps a disabled period. Please choose another time.';
-      }
-      if (rangesOverlap(timeStr, endTime, avail.bookedRanges)) {
-        return 'This time overlaps an existing booking. Please choose another time.';
-      }
-    }
-
+  const validateTime = (time: string, slots: AvailableSlot[]): string | null => {
+    if (!time) return 'Please select a time slot.';
+    const slot = slots.find(s => s.start_time === time);
+    if (!slot) return 'The selected time slot is no longer available.';
+    if (slot.remaining_capacity <= 0) return 'This slot is fully booked.';
     return null;
   };
 
@@ -124,7 +112,7 @@ export default function DiscoveryCall() {
       return;
     }
 
-    const timeError = validateTime(form.preferred_time, availability);
+    const timeError = validateTime(form.preferred_time, availableSlots);
     if (timeError) {
       setError(timeError);
       return;
@@ -276,31 +264,69 @@ export default function DiscoveryCall() {
                       {loadingAvailability && <Loader2 className="w-3 h-3 text-obsidian-400 animate-spin" />}
                     </label>
                     <div className="mt-2">
-                      <TimeScroller 
-                        availability={availability}
-                        value={form.preferred_time}
-                        onChange={(val) => setForm(p => ({...p, preferred_time: val}))}
-                        disabled={!form.preferred_date || loadingAvailability || availability?.dayDisabled}
-                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+                        {loadingAvailability && !slotsLoaded ? (
+                          <div className="col-span-1 sm:col-span-2 text-center py-4 text-obsidian-400 text-sm border border-obsidian-800 rounded-lg">Loading slots...</div>
+                        ) : slotsLoaded && availableSlots.length === 0 ? (
+                          <div className="col-span-1 sm:col-span-2 text-center py-4 text-obsidian-400 text-sm border border-obsidian-800 rounded-lg">
+                            No slots are available for the selected date.
+                          </div>
+                        ) : (
+                          availableSlots.map(slot => {
+                            const isSelected = form.preferred_time === slot.start_time;
+                            const formatTime = (t24: string) => {
+                               let [h, m] = t24.split(':');
+                               let hNum = parseInt(h, 10);
+                               const p = hNum >= 12 ? 'PM' : 'AM';
+                               if (hNum === 0) hNum = 12;
+                               if (hNum > 12) hNum -= 12;
+                               return `${hNum.toString().padStart(2, '0')}:${m} ${p}`;
+                            };
+                            const capacityText = slot.remaining_capacity > 1 
+                              ? `${slot.remaining_capacity} slots remaining` 
+                              : slot.remaining_capacity === 1 && slot.max_bookings > 1 
+                                 ? `1 slot remaining`
+                                 : `Available`;
+
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => { setForm(p => ({ ...p, preferred_time: slot.start_time })); setError(''); }}
+                                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                                  isSelected 
+                                    ? 'bg-gold-500/10 border-gold-500 text-gold-400 shadow-[0_0_15px_rgba(234,179,8,0.15)]' 
+                                    : 'bg-obsidian-900 border-obsidian-700 text-obsidian-300 hover:border-gold-500/50 hover:text-obsidian-100'
+                                }`}
+                              >
+                                <span className="font-medium text-sm">
+                                  {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
+                                </span>
+                                <span className={`text-xs mt-1 ${isSelected ? 'text-gold-500/80' : 'text-obsidian-500'}`}>
+                                  {capacityText}
+                                </span>
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                      
+                      <style dangerouslySetInnerHTML={{__html: `
+                        .pr-1::-webkit-scrollbar {
+                          width: 4px;
+                        }
+                        .pr-1::-webkit-scrollbar-track {
+                          background: rgba(15, 15, 15, 0.5);
+                          border-radius: 4px;
+                        }
+                        .pr-1::-webkit-scrollbar-thumb {
+                          background: rgba(234, 179, 8, 0.3);
+                          border-radius: 4px;
+                        }
+                      `}} />
                     </div>
                   </div>
                 </div>
-
-                {form.preferred_date && availability && !loadingAvailability && (
-                  <div className="bg-obsidian-800/50 rounded-lg p-3 text-sm">
-                    {availability.dayDisabled ? (
-                      <div className="flex items-center gap-2 text-red-400">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>This date is fully unavailable. Please choose another date.</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 text-emerald-400">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Select from the available times above.</span>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-obsidian-300 text-sm mb-2">Anything you'd like us to know</label>
@@ -321,7 +347,7 @@ export default function DiscoveryCall() {
                 <button
                   type="submit"
                   id="booking-submit"
-                  disabled={loading || (availability?.dayDisabled ?? false)}
+                  disabled={loading || (slotsLoaded && availableSlots.length === 0)}
                   className="gold-btn w-full flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

@@ -1,34 +1,53 @@
 // ============================================================
-// BuildMySite Admin — Availability Manager
+// BuildMySite Admin — Slot Management
 // ============================================================
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, Clock, Plus, Trash2, Eye, Pencil } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Plus, Trash2, Pencil, CheckCircle, Ban, Users } from 'lucide-react';
 import DataTable, { type Column } from '../components/DataTable';
-import { availabilityService, type Override } from '../services/availability';
-import { bookingService } from '../services/booking';
-import { formatDate, formatDateTime, getStatusColor, capitalize } from '../utils';
+import { slotService, type Slot } from '../services/slots';
+import { formatDate } from '../utils';
 import { formatDisplayTime } from '../../lib/availabilityUtils';
-import type { Booking } from '../types';
 
-// ─── Disable Modal ────────────────────────────────────────────────────────────
-const DisableModal = ({
+// ─── Stat Card Component ──────────────────────────────────────────────────────
+const StatCard = ({ title, value, icon: Icon, colorClass }: { title: string; value: number; icon: any; colorClass: string }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-obsidian-800/40 border border-obsidian-700/50 rounded-2xl p-5 flex items-center justify-between"
+  >
+    <div>
+      <p className="text-obsidian-400 text-xs font-semibold uppercase tracking-wider mb-1">{title}</p>
+      <h3 className="text-2xl font-bold text-obsidian-50">{value}</h3>
+    </div>
+    <div className={`p-3 rounded-xl ${colorClass}`}>
+      <Icon size={20} />
+    </div>
+  </motion.div>
+);
+
+// ─── Slot Form Modal ──────────────────────────────────────────────────────────
+const SlotModal = ({
   onClose,
-  onConfirm,
+  onSave,
   isLoading,
   initial,
 }: {
   onClose: () => void;
-  onConfirm: (date: string, start?: string, end?: string, reason?: string) => void;
+  onSave: (payload: any) => void;
   isLoading: boolean;
-  initial?: Override;
+  initial?: Slot;
 }) => {
-  const [date, setDate] = useState(initial?.date ?? '');
+  const [date, setDate] = useState(initial?.date?.split('T')[0] ?? '');
   const [startTime, setStartTime] = useState(initial?.start_time?.substring(0, 5) ?? '');
   const [endTime, setEndTime] = useState(initial?.end_time?.substring(0, 5) ?? '');
-  const [reason, setReason] = useState(initial?.reason ?? '');
-  const [isWholeDay, setIsWholeDay] = useState(!initial?.start_time);
+  const [maxBookings, setMaxBookings] = useState(initial?.max_bookings ?? 1);
+
+  const handleSubmit = () => {
+    if (!date || !startTime || !endTime || maxBookings < 1) return;
+    onSave({ date, start_time: startTime, end_time: endTime, max_bookings: maxBookings });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -38,40 +57,34 @@ const DisableModal = ({
         exit={{ opacity: 0, scale: 0.96 }}
         className="relative bg-obsidian-900 border border-obsidian-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
         <h2 className="text-lg font-bold text-obsidian-100 mb-5">
-          {initial ? 'Edit Disabled Availability' : 'Disable Availability'}
+          {initial ? 'Edit Slot' : 'Create New Slot'}
         </h2>
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">Date <span className="text-gold-500">*</span></label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input-dark" min={new Date().toISOString().split('T')[0]} />
           </div>
-          <div className="flex items-center gap-3 py-2">
-            <input type="checkbox" id="whole-day" checked={isWholeDay} onChange={e => setIsWholeDay(e.target.checked)} className="checkbox-gold" />
-            <label htmlFor="whole-day" className="text-sm text-obsidian-300 cursor-pointer">Disable whole day</label>
-          </div>
-          {!isWholeDay && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">Start Time <span className="text-gold-500">*</span></label>
-                <input type="time" min="09:00" max="21:00" value={startTime} onChange={e => setStartTime(e.target.value)} className="input-dark" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">End Time <span className="text-gold-500">*</span></label>
-                <input type="time" min="09:00" max="21:00" value={endTime} onChange={e => setEndTime(e.target.value)} className="input-dark" />
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">Start Time <span className="text-gold-500">*</span></label>
+              <input type="time" min="09:00" max="21:00" value={startTime} onChange={e => setStartTime(e.target.value)} className="input-dark" />
             </div>
-          )}
+            <div>
+              <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">End Time <span className="text-gold-500">*</span></label>
+              <input type="time" min="09:00" max="21:00" value={endTime} onChange={e => setEndTime(e.target.value)} className="input-dark" />
+            </div>
+          </div>
           <div>
-            <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">Reason (Optional)</label>
-            <input type="text" placeholder="e.g. Lunch break, Public Holiday" value={reason} onChange={e => setReason(e.target.value)} className="input-dark" />
+            <label className="block text-xs font-semibold text-obsidian-400 uppercase tracking-wider mb-1.5">Maximum Bookings <span className="text-gold-500">*</span></label>
+            <input type="number" min="1" value={maxBookings} onChange={e => setMaxBookings(parseInt(e.target.value) || 1)} className="input-dark" />
           </div>
         </div>
         <div className="flex gap-3 mt-8">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-obsidian-600 text-obsidian-300 text-sm hover:bg-obsidian-800 transition-colors">Cancel</button>
-          <button onClick={() => onConfirm(date, isWholeDay ? undefined : startTime, isWholeDay ? undefined : endTime, reason)}
-            disabled={isLoading || !date || (!isWholeDay && (!startTime || !endTime))}
+          <button onClick={handleSubmit}
+            disabled={isLoading || !date || !startTime || !endTime || maxBookings < 1}
             className="flex-1 gold-btn py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            {isLoading ? 'Saving…' : initial ? 'Update' : 'Disable'}
+            {isLoading ? 'Saving…' : initial ? 'Update Slot' : 'Create Slot'}
           </button>
         </div>
       </motion.div>
@@ -80,299 +93,233 @@ const DisableModal = ({
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-type UnifiedRow = {
-  id: string;
-  type: 'override' | 'booking';
-  rawDate: string;
-  dateStr: string;
-  startTimeStr: string;
-  endTimeStr: string;
-  status: 'Available' | 'Disabled' | 'Booked';
-  customerName?: string;
-  bookingStatus?: string;
-  disabledReason?: string;
-  createdAt: string;
-  rawOverride?: Override;
-  rawBooking?: Booking;
-};
-
 const Slots = () => {
   const queryClient = useQueryClient();
-  const [isDisableModalOpen, setIsDisableModalOpen] = useState(false);
-  const [editOverride, setEditOverride] = useState<Override | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editSlot, setEditSlot] = useState<Slot | null>(null);
 
-  const { data: overridesData, isLoading: isLoadingOverrides } = useQuery({
-    queryKey: ['overrides'],
-    queryFn: availabilityService.getAll,
+  const { data: slotData, isLoading } = useQuery({
+    queryKey: ['slots'],
+    queryFn: slotService.getAll,
   });
 
-  const { data: bookingsData, isLoading: isLoadingBookings } = useQuery({
-    queryKey: ['bookings'],
-    queryFn: bookingService.getAll,
-  });
+  const slots = slotData?.data || [];
+  const stats = slotData?.stats || { total: 0, available: 0, booked: 0, full: 0, disabled: 0 };
 
-  const disableMutation = useMutation({
-    mutationFn: availabilityService.disable,
+  const createMutation = useMutation({
+    mutationFn: slotService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['overrides'] });
-      setIsDisableModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      setIsModalOpen(false);
     },
-    onError: (error: { response?: { data?: { message?: string } } }) => {
-      alert(error.response?.data?.message || 'Failed to disable availability');
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to create slot');
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Parameters<typeof availabilityService.update>[1] }) =>
-      availabilityService.update(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: any }) => slotService.update(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['overrides'] });
-      setEditOverride(null);
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      setEditSlot(null);
     },
-    onError: (error: { response?: { data?: { message?: string } } }) => {
-      alert(error.response?.data?.message || 'Failed to update override');
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to update slot');
     },
   });
 
   const enableMutation = useMutation({
-    mutationFn: availabilityService.enable,
+    mutationFn: (id: number) => slotService.enable(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['overrides'] });
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to enable slot');
     },
   });
 
-  const deleteBookingMutation = useMutation({
-    mutationFn: bookingService.delete,
+  const disableMutation = useMutation({
+    mutationFn: (id: number) => slotService.disable(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to disable slot');
     },
   });
 
-  const overrides = overridesData ?? [];
-  const bookings = bookingsData?.data ?? [];
-
-  const rows: UnifiedRow[] = [];
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = -30; i <= 90; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const day = d.getDay();
-    if (day === 0 || day === 6) {
-      const dateString = d.toISOString().split('T')[0];
-      rows.push({
-        id: `weekend-${dateString}`,
-        type: 'override',
-        rawDate: dateString,
-        dateStr: formatDate(dateString),
-        startTimeStr: 'Whole Day',
-        endTimeStr: 'Whole Day',
-        status: 'Disabled',
-        disabledReason: 'Weekend (Non-Working Day)',
-        createdAt: d.toISOString(),
-      });
-    }
-  }
-
-  overrides.forEach(o => {
-    const d = new Date(o.date);
-    if (d.getDay() === 0 || d.getDay() === 6) return;
-
-    rows.push({
-      id: `override-${o.id}`,
-      type: 'override',
-      rawDate: o.date,
-      dateStr: formatDate(o.date),
-      startTimeStr: o.start_time ? formatDisplayTime(o.start_time) : 'Whole Day',
-      endTimeStr: o.end_time ? formatDisplayTime(o.end_time) : 'Whole Day',
-      status: 'Disabled',
-      disabledReason: o.reason || '—',
-      createdAt: o.created_at,
-      rawOverride: o,
-    });
+  const deleteMutation = useMutation({
+    mutationFn: slotService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Failed to delete slot');
+    },
   });
 
-  bookings.forEach(b => {
-    if (b.status === 'pending' || b.status === 'accepted') {
-      rows.push({
-        id: `booking-${b.id}`,
-        type: 'booking',
-        rawDate: b.preferred_date || b.created_at,
-        dateStr: formatDate(b.preferred_date),
-        startTimeStr: b.preferred_time ? formatDisplayTime(b.preferred_time) : '—',
-        endTimeStr: b.preferred_end_time ? formatDisplayTime(b.preferred_end_time) : '—',
-        status: 'Booked',
-        customerName: b.name,
-        bookingStatus: b.status,
-        disabledReason: '—',
-        createdAt: b.created_at,
-        rawBooking: b,
-      });
-    }
-  });
 
-  rows.sort((a, b) => {
-    const d1 = new Date(a.rawDate).getTime();
-    const d2 = new Date(b.rawDate).getTime();
-    if (d1 !== d2) return d2 - d1;
-    return a.startTimeStr.localeCompare(b.startTimeStr);
-  });
 
-  const columns: Column<UnifiedRow>[] = [
+  const columns: Column<Slot>[] = [
     {
-      key: 'dateStr', label: 'Date', sortable: true,
+      key: 'date', label: 'Date', sortable: true,
       render: row => (
         <div className="flex items-center gap-2">
           <CalendarIcon size={14} className="text-gold-400/60" />
-          <span className="text-obsidian-200 font-medium">{row.dateStr}</span>
+          <span className="text-obsidian-200 font-medium">{formatDate(row.date)}</span>
         </div>
       ),
     },
     {
-      key: 'startTimeStr', label: 'Start Time',
+      key: 'start_time', label: 'Time',
       render: row => (
         <div className="flex items-center gap-2">
           <Clock size={14} className="text-obsidian-500" />
-          <span className="text-obsidian-300">{row.startTimeStr}</span>
+          <span className="text-obsidian-300">
+            {formatDisplayTime(row.start_time)} - {formatDisplayTime(row.end_time)}
+          </span>
         </div>
       ),
     },
     {
-      key: 'endTimeStr', label: 'End Time',
-      render: row => <span className="text-obsidian-300">{row.endTimeStr}</span>,
-    },
-    {
-      key: 'status', label: 'Status',
+      key: 'status', label: 'Status', sortable: true,
       render: row => {
         const colors = {
-          Booked: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
-          Disabled: 'text-red-400 border-red-500/30 bg-red-500/10',
           Available: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+          Booked: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
+          Full: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+          Disabled: 'text-red-400 border-red-500/30 bg-red-500/10',
         };
         return (
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${colors[row.status]}`}>
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${colors[row.status]}`}>
             {row.status}
           </span>
         );
       },
     },
     {
-      key: 'customerName', label: 'Customer Name',
-      render: row => <span className="text-obsidian-300">{row.customerName || '—'}</span>,
-    },
-    {
-      key: 'bookingStatus', label: 'Booking Status',
-      render: row => row.bookingStatus ? (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(row.bookingStatus)}`}>
-          {capitalize(row.bookingStatus)}
-        </span>
-      ) : (
-        <span className="text-obsidian-600 text-xs">—</span>
+      key: 'booked_count', label: 'Capacity',
+      render: row => (
+        <div className="flex flex-col">
+          <span className="text-obsidian-200 font-medium text-sm">
+            {row.booked_count} / {row.max_bookings}
+          </span>
+          <span className="text-obsidian-500 text-[10px] uppercase tracking-wider">
+            {row.remaining_capacity} remaining
+          </span>
+        </div>
       ),
     },
     {
-      key: 'disabledReason', label: 'Disabled Reason',
-      render: row => <span className="text-obsidian-400 text-xs">{row.disabledReason}</span>,
-    },
-    {
-      key: 'createdAt', label: 'Created Date', sortable: true,
-      render: row => <span className="text-obsidian-400 text-xs">{formatDateTime(row.createdAt)}</span>,
+      key: 'id', label: 'Actions',
+      render: row => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setEditSlot(row)}
+            title="Edit Slot"
+            className="p-1.5 rounded-lg text-obsidian-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+          >
+            <Pencil size={15} />
+          </button>
+          <button
+            onClick={() => {
+              if (confirm(`Are you sure you want to ${row.is_disabled ? 'enable' : 'disable'} this slot?`)) {
+                if (row.is_disabled) {
+                  enableMutation.mutate(row.id);
+                } else {
+                  disableMutation.mutate(row.id);
+                }
+              }
+            }}
+            title={row.is_disabled ? "Enable Slot" : "Disable Slot"}
+            className={`p-1.5 rounded-lg transition-colors ${
+              row.is_disabled 
+                ? 'text-obsidian-400 hover:text-emerald-400 hover:bg-emerald-500/10' 
+                : 'text-obsidian-400 hover:text-amber-400 hover:bg-amber-500/10'
+            }`}
+          >
+            {row.is_disabled ? <CheckCircle size={15} /> : <Ban size={15} />}
+          </button>
+          <button
+            onClick={() => {
+              if (row.booked_count > 0) {
+                alert('Cannot delete a slot with existing bookings.');
+                return;
+              }
+              if (confirm('Are you sure you want to delete this slot?')) {
+                deleteMutation.mutate(row.id);
+              }
+            }}
+            title="Delete Slot"
+            className={`p-1.5 rounded-lg transition-colors ${
+              row.booked_count > 0
+                ? 'text-obsidian-600 cursor-not-allowed'
+                : 'text-obsidian-400 hover:text-red-400 hover:bg-red-500/10'
+            }`}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
     },
   ];
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-obsidian-50 flex items-center gap-2">
-            <Clock size={22} className="text-gold-400" /> Availability Manager
+            <Clock size={22} className="text-gold-400" /> Slot Management
           </h1>
-          <p className="text-sm text-obsidian-400 mt-0.5">Manage disabled times and view active bookings. Days are available 09:00 AM – 09:00 PM by default.</p>
+          <p className="text-sm text-obsidian-400 mt-0.5">
+            Manage your availability slots and booking capacities.
+          </p>
         </div>
         <button
-          onClick={() => setIsDisableModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl gold-btn text-sm font-medium transition-colors"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl gold-btn text-sm font-medium transition-colors shadow-lg shadow-gold-500/10"
         >
-          <Plus size={16} /> Disable Date/Time
+          <Plus size={16} /> Create Slot
         </button>
       </div>
 
-      <div className="bg-obsidian-800/40 border border-obsidian-700/50 rounded-2xl p-6">
+      {/* Dashboard Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <StatCard title="Total Slots" value={stats.total} icon={CalendarIcon} colorClass="bg-obsidian-700/50 text-obsidian-300" />
+        <StatCard title="Available" value={stats.available} icon={CheckCircle} colorClass="bg-emerald-500/10 text-emerald-400" />
+        <StatCard title="Booked" value={stats.booked} icon={Users} colorClass="bg-blue-500/10 text-blue-400" />
+        <StatCard title="Full" value={stats.full} icon={Clock} colorClass="bg-amber-500/10 text-amber-400" />
+        <StatCard title="Disabled" value={stats.disabled} icon={Ban} colorClass="bg-red-500/10 text-red-400" />
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-obsidian-800/40 border border-obsidian-700/50 rounded-2xl p-6 shadow-xl">
         <DataTable
           columns={columns}
-          data={rows}
-          isLoading={isLoadingOverrides || isLoadingBookings}
-          searchKeys={['customerName', 'dateStr', 'startTimeStr', 'disabledReason'] as never[]}
-          pageSize={15}
-          emptyMessage="No blocked times or active bookings yet."
-          actions={row => {
-            if (row.type === 'override') {
-              if (!row.rawOverride) return null; // Hide actions for generated weekends
-              return (
-                <>
-                  <button
-                    onClick={() => setEditOverride(row.rawOverride!)}
-                    title="Edit"
-                    className="p-1.5 rounded-lg text-obsidian-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    onClick={() => { if (confirm('Re-enable this time?')) enableMutation.mutate(row.rawOverride!.id); }}
-                    title="Enable"
-                    className="p-1.5 rounded-lg text-obsidian-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors">
-                    <Trash2 size={15} />
-                  </button>
-                </>
-              );
-            }
-            if (row.type === 'booking') {
-              return (
-                <>
-                  <a href="/admin/bookings" title="View Booking"
-                    className="p-1.5 inline-block rounded-lg text-obsidian-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors">
-                    <Eye size={15} />
-                  </a>
-                  <button
-                    onClick={() => { if (confirm(`Delete booking for ${row.customerName}?`)) deleteBookingMutation.mutate(row.rawBooking!.id); }}
-                    title="Delete"
-                    className="p-1.5 rounded-lg text-obsidian-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                    <Trash2 size={15} />
-                  </button>
-                </>
-              );
-            }
-            return null;
-          }}
+          data={slots}
+          isLoading={isLoading}
+          searchKeys={['date', 'status'] as never[]}
+          pageSize={10}
+          emptyMessage="No slots created yet. Create a slot to get started."
         />
       </div>
 
+      {/* Modals */}
       <AnimatePresence>
-        {isDisableModalOpen && (
-          <DisableModal
-            onClose={() => setIsDisableModalOpen(false)}
-            isLoading={disableMutation.isPending}
-            onConfirm={(date, start_time, end_time, reason) =>
-              disableMutation.mutate({ date, start_time, end_time, reason })
-            }
+        {isModalOpen && (
+          <SlotModal
+            onClose={() => setIsModalOpen(false)}
+            isLoading={createMutation.isPending}
+            onSave={payload => createMutation.mutate(payload)}
           />
         )}
-        {editOverride && (
-          <DisableModal
-            initial={editOverride}
-            onClose={() => setEditOverride(null)}
+        {editSlot && (
+          <SlotModal
+            initial={editSlot}
+            onClose={() => setEditSlot(null)}
             isLoading={updateMutation.isPending}
-            onConfirm={(date, start_time, end_time, reason) =>
-              updateMutation.mutate({
-                id: editOverride.id,
-                payload: {
-                  date,
-                  start_time: start_time ?? null,
-                  end_time: end_time ?? null,
-                  reason: reason ?? null,
-                },
-              })
-            }
+            onSave={payload => updateMutation.mutate({ id: editSlot.id, payload })}
           />
         )}
       </AnimatePresence>

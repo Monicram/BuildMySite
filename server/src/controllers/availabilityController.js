@@ -24,33 +24,11 @@ exports.checkAvailability = async (req, res, next) => {
       });
     }
 
-    const overrideRes = await pool.query(
-      "SELECT start_time, end_time FROM availability_overrides WHERE date = $1",
+    const slotRes = await pool.query(
+      "SELECT * FROM admin_slots WHERE date = $1",
       [date]
     );
-
-    let dayDisabled = false;
-    const disabledRanges = [];
-
-    overrideRes.rows.forEach((row) => {
-      if (row.start_time === null) {
-        dayDisabled = true;
-      } else {
-        disabledRanges.push({
-          start: row.start_time.substring(0, 5),
-          end: row.end_time.substring(0, 5),
-        });
-      }
-    });
-
-    if (dayDisabled) {
-      return res.status(200).json({
-        success: true,
-        dayDisabled: true,
-        disabledRanges: [],
-        bookedRanges: [],
-      });
-    }
+    const slots = slotRes.rows;
 
     const bookingRes = await pool.query(
       `SELECT preferred_time,
@@ -64,11 +42,44 @@ exports.checkAvailability = async (req, res, next) => {
          AND preferred_time IS NOT NULL`,
       [date]
     );
+    const bookings = bookingRes.rows;
 
-    const bookedRanges = bookingRes.rows.map((row) => ({
-      start: row.preferred_time.substring(0, 5),
-      end: row.preferred_end_time.substring(0, 5),
-    }));
+    const disabledRanges = [];
+    const bookedRanges = [];
+
+    const slotBookings = slots.map(slot => ({ ...slot, booking_count: 0 }));
+
+    bookings.forEach(booking => {
+      let matchedSlot = false;
+      for (const slot of slotBookings) {
+        if (booking.preferred_time < slot.end_time && booking.preferred_end_time > slot.start_time) {
+          slot.booking_count++;
+          matchedSlot = true;
+        }
+      }
+
+      // If no admin slot overlaps, default to 1 max capacity (fully booked)
+      if (!matchedSlot) {
+        bookedRanges.push({
+          start: booking.preferred_time.substring(0, 5),
+          end: booking.preferred_end_time.substring(0, 5),
+        });
+      }
+    });
+
+    slotBookings.forEach(slot => {
+      if (slot.is_disabled) {
+        disabledRanges.push({
+          start: slot.start_time.substring(0, 5),
+          end: slot.end_time.substring(0, 5),
+        });
+      } else if (slot.booking_count >= slot.max_bookings) {
+        bookedRanges.push({
+          start: slot.start_time.substring(0, 5),
+          end: slot.end_time.substring(0, 5),
+        });
+      }
+    });
 
     res.status(200).json({
       success: true,

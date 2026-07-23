@@ -51,53 +51,44 @@ exports.createBooking = async (req, res, next) => {
       });
     }
 
-    const preferred_end_time = minutesToTime(timeToMinutes(preferred_time) + CALL_DURATION);
-
     await client.query("BEGIN");
     inTransaction = true;
 
-    // Per-date advisory lock prevents concurrent double-bookings
-    await client.query("SELECT pg_advisory_xact_lock(hashtext($1::text))", [preferred_date]);
-
-    const overrideRes = await client.query(
-      `SELECT id FROM availability_overrides
-       WHERE date = $1
-         AND (
-           start_time IS NULL
-           OR (start_time < $3 AND end_time > $2)
-         )`,
-      [preferred_date, preferred_time, preferred_end_time]
+    // Check if slot exists and is not disabled
+    const slotRes = await client.query(
+      `SELECT id, max_bookings, end_time FROM admin_slots 
+       WHERE date = $1 AND start_time = $2 AND is_disabled = false
+       FOR UPDATE`,
+      [preferred_date, preferred_time]
     );
 
-    if (overrideRes.rows.length > 0) {
+    if (slotRes.rows.length === 0) {
       await client.query("ROLLBACK");
       inTransaction = false;
       return res.status(400).json({
         success: false,
-        message: "This time is unavailable.",
+        message: "The selected slot is unavailable or does not exist.",
       });
     }
 
+    const slot = slotRes.rows[0];
+    const preferred_end_time = slot.end_time;
+
+    // Check booked capacity
     const existingRes = await client.query(
-      `SELECT id FROM discovery_bookings
-       WHERE preferred_date = $1
-         AND status IN ('pending', 'accepted')
-         AND preferred_time IS NOT NULL
-         AND COALESCE(
-           preferred_end_time,
-           to_char((preferred_time::time + interval '60 minutes')::time, 'HH24:MI')
-         ) > $2
-         AND preferred_time < $3
-       FOR UPDATE`,
-      [preferred_date, preferred_time, preferred_end_time]
+      `SELECT count(id) as count FROM discovery_bookings
+       WHERE preferred_date = $1 
+         AND preferred_time = $2 
+         AND status IN ('pending', 'accepted')`,
+      [preferred_date, preferred_time]
     );
 
-    if (existingRes.rows.length > 0) {
+    if (parseInt(existingRes.rows[0].count, 10) >= slot.max_bookings) {
       await client.query("ROLLBACK");
       inTransaction = false;
       return res.status(409).json({
         success: false,
-        message: "This time is already booked. Please choose another time.",
+        message: "This slot is fully booked. Please choose another time.",
       });
     }
 
@@ -237,14 +228,6 @@ exports.updateBooking = async (req, res, next) => {
       (preferred_date && preferred_date !== currentBooking.preferred_date) ||
       (preferred_time && preferred_time !== currentBooking.preferred_time);
 
-    if (timeChanged) {
-      const timeError = validateBookingTime(newTime);
-      if (timeError) {
-        return res.status(400).json({ success: false, message: timeError });
-      }
-      newEndTime = minutesToTime(timeToMinutes(newTime) + CALL_DURATION);
-    }
-
     const needsConflictCheck =
       timeChanged && ["pending", "accepted"].includes(newStatus);
 
@@ -252,48 +235,40 @@ exports.updateBooking = async (req, res, next) => {
       await client.query("BEGIN");
       inTransaction = true;
 
-      await client.query("SELECT pg_advisory_xact_lock(hashtext($1::text))", [newDate]);
-
-      const overrideRes = await client.query(
-        `SELECT id FROM availability_overrides
-         WHERE date = $1
-           AND (
-             start_time IS NULL
-             OR (start_time < $3 AND end_time > $2)
-           )`,
-        [newDate, newTime, newEndTime]
+      const slotRes = await client.query(
+        `SELECT id, max_bookings, end_time FROM admin_slots 
+         WHERE date = $1 AND start_time = $2 AND is_disabled = false
+         FOR UPDATE`,
+        [newDate, newTime]
       );
 
-      if (overrideRes.rows.length > 0) {
+      if (slotRes.rows.length === 0) {
         await client.query("ROLLBACK");
         inTransaction = false;
         return res.status(400).json({
           success: false,
-          message: "This time is unavailable.",
+          message: "The selected slot is unavailable or does not exist.",
         });
       }
 
+      const slot = slotRes.rows[0];
+      newEndTime = slot.end_time;
+
       const existingRes = await client.query(
-        `SELECT id FROM discovery_bookings
-         WHERE preferred_date = $1
-           AND status IN ('pending', 'accepted')
-           AND id != $4
-           AND preferred_time IS NOT NULL
-           AND COALESCE(
-             preferred_end_time,
-             to_char((preferred_time::time + interval '60 minutes')::time, 'HH24:MI')
-           ) > $2
-           AND preferred_time < $3
-         FOR UPDATE`,
-        [newDate, newTime, newEndTime, req.params.id]
+        `SELECT count(id) as count FROM discovery_bookings
+         WHERE preferred_date = $1 
+           AND preferred_time = $2 
+           AND id != $3
+           AND status IN ('pending', 'accepted')`,
+        [newDate, newTime, req.params.id]
       );
 
-      if (existingRes.rows.length > 0) {
+      if (parseInt(existingRes.rows[0].count, 10) >= slot.max_bookings) {
         await client.query("ROLLBACK");
         inTransaction = false;
         return res.status(409).json({
           success: false,
-          message: "This time is already booked. Please choose another time.",
+          message: "This slot is fully booked. Please choose another time.",
         });
       }
     }
