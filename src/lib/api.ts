@@ -50,16 +50,6 @@ export interface AvailabilityResponse {
   bookedRanges: TimeRange[];
 }
 
-export interface AvailableSlot {
-  id: number;
-  date: string;
-  start_time: string;
-  end_time: string;
-  max_bookings: number;
-  booked_count: number;
-  remaining_capacity: number;
-}
-
 // ─── API Calls ─────────────────────────────────────────────────────────────────
 
 /**
@@ -85,21 +75,12 @@ export const submitBooking = async (payload: DiscoveryBooking): Promise<void> =>
 };
 
 /**
- * Fetch availability for a specific date (Legacy)
+ * Fetch availability for a specific date
  * GET /api/availability/check?date=YYYY-MM-DD
  */
 export const fetchAvailability = async (date: string): Promise<AvailabilityResponse> => {
   const response = await api.get(`/availability/check?date=${date}`);
   return response.data;
-};
-
-/**
- * Fetch available slots for a specific date
- * GET /api/slots/available?date=YYYY-MM-DD
- */
-export const fetchAvailableSlots = async (date: string): Promise<AvailableSlot[]> => {
-  const response = await api.get(`/slots/available?date=${date}`);
-  return response.data.data;
 };
 
 export default api;
