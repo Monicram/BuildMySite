@@ -122,14 +122,20 @@ exports.getAllSlots = async (req, res, next) => {
         if (isDisabled) {
           status = 'Disabled';
           stats.disabled++;
-        } else if (remaining_capacity === 0) {
-          status = 'Full';
-          stats.full++;
-        } else if (booked_count > 0) {
-          status = 'Booked';
-          stats.booked++;
         } else {
-          stats.available++;
+          if (remaining_capacity === 0) {
+            status = 'Full';
+            stats.full++;
+          } else if (booked_count > 0) {
+            status = 'Booked';
+          } else {
+            status = 'Available';
+            stats.available++;
+          }
+          
+          if (booked_count > 0) {
+            stats.booked++;
+          }
         }
 
         stats.total++;
