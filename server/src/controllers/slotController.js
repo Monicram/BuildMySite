@@ -1,224 +1,141 @@
 const pool = require("../config/database").pool;
-const { timeToMinutes, BUSINESS_START, BUSINESS_END } = require("../utils/availabilityConstants");
+const {
+  timeToMinutes,
+  minutesToTime,
+  BUSINESS_START,
+  BUSINESS_END,
+  LATEST_START,
+  SLOT_INTERVAL,
+  CALL_DURATION,
+  rangesOverlap,
+  rangeListOverlap,
+} = require("../utils/availabilityConstants");
 
-// ─── Get Available Slots (Customer Facing) ───────────────────────────────────
-exports.getAvailableSlots = async (req, res, next) => {
-  try {
-    const { date } = req.query;
-    if (!date) {
-      return res.status(400).json({ success: false, message: "Date is required." });
-    }
-
-    const query = `
-      SELECT 
-        s.id,
-        s.date,
-        s.start_time,
-        s.end_time,
-        s.max_bookings,
-        COUNT(b.id) AS booked_count
-      FROM admin_slots s
-      LEFT JOIN discovery_bookings b 
-        ON s.date::text = b.preferred_date 
-        AND b.status IN ('pending', 'accepted')
-        AND b.preferred_time < s.end_time 
-        AND COALESCE(b.preferred_end_time, to_char((b.preferred_time::time + interval '60 minutes')::time, 'HH24:MI')) > s.start_time
-      WHERE s.date = $1
-        AND s.is_disabled = false
-      GROUP BY s.id
-      ORDER BY s.start_time ASC
-    `;
-    const result = await pool.query(query, [date]);
-
-    const now = new Date();
-    const currentDateString = now.toISOString().split('T')[0];
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-
-    const data = result.rows.map(row => {
-      const bookedCount = parseInt(row.booked_count, 10);
-      const remainingCapacity = Math.max(0, row.max_bookings - bookedCount);
-      return {
-        id: row.id,
-        date: row.date,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        max_bookings: row.max_bookings,
-        booked_count: bookedCount,
-        remaining_capacity: remainingCapacity,
-      };
-    }).filter(slot => {
-      // 1. Hide full slots
-      if (slot.remaining_capacity <= 0) return false;
-      // 2. Hide past slots (expired) if today
-      if (slot.date.toISOString().split('T')[0] === currentDateString) {
-        const slotStartMins = timeToMinutes(slot.start_time);
-        if (slotStartMins <= currentMins) return false;
-      }
-      return true;
-    });
-
-    res.status(200).json({
-      success: true,
-      count: data.length,
-      data
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ─── Get All Slots with Stats ──────────────────────────────────────────────────
+// ─── Get All Slots with Stats (Virtually Generated) ──────────────────────────
 exports.getAllSlots = async (req, res, next) => {
   try {
-    const query = `
-      SELECT 
-        s.*,
-        COUNT(b.id) AS booked_count
-      FROM admin_slots s
-      LEFT JOIN discovery_bookings b 
-        ON s.date::text = b.preferred_date 
-        AND b.status IN ('pending', 'accepted')
-        AND b.preferred_time < s.end_time 
-        AND COALESCE(b.preferred_end_time, to_char((b.preferred_time::time + interval '60 minutes')::time, 'HH24:MI')) > s.start_time
-      GROUP BY s.id
-      ORDER BY s.date DESC, s.start_time ASC
-    `;
-    const result = await pool.query(query);
-
-    const data = result.rows.map(row => {
-      const bookedCount = parseInt(row.booked_count, 10);
-      const remainingCapacity = Math.max(0, row.max_bookings - bookedCount);
-      let status = "Available";
-      
-      if (row.is_disabled) {
-        status = "Disabled";
-      } else if (remainingCapacity === 0) {
-        status = "Full";
-      } else if (bookedCount > 0) {
-        status = "Booked";
+    const today = new Date();
+    const dates = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dayOfWeek = d.getDay();
+      // Skip Saturday (6) and Sunday (0)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        dates.push(d.toISOString().split('T')[0]);
       }
+    }
 
-      return {
-        ...row,
-        booked_count: bookedCount,
-        remaining_capacity: remainingCapacity,
-        status
-      };
+    if (dates.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [], stats: { total: 0, available: 0, booked: 0, full: 0, disabled: 0 } });
+    }
+
+    const minDate = dates[0];
+    const maxDate = dates[dates.length - 1];
+
+    // Fetch relevant overrides
+    const overridesRes = await pool.query(
+      `SELECT * FROM availability_overrides WHERE date >= $1 AND date <= $2`,
+      [minDate, maxDate]
+    );
+    const overrides = overridesRes.rows;
+
+    // Fetch relevant bookings
+    const bookingsRes = await pool.query(
+      `SELECT preferred_date, preferred_time, 
+              COALESCE(
+                preferred_end_time,
+                to_char((preferred_time::time + interval '60 minutes')::time, 'HH24:MI')
+              ) AS preferred_end_time
+       FROM discovery_bookings
+       WHERE preferred_date >= $1 AND preferred_date <= $2
+         AND status IN ('pending', 'accepted')
+         AND preferred_time IS NOT NULL`,
+      [minDate, maxDate]
+    );
+    const bookings = bookingsRes.rows;
+
+    const allSlots = [];
+    const stats = { total: 0, available: 0, booked: 0, full: 0, disabled: 0 };
+    const max_bookings = 1;
+
+    dates.forEach(dateStr => {
+      // Find overrides for this date
+      const dayOverrides = overrides.filter(o => {
+        // o.date is a Date object from node-postgres
+        const d = new Date(o.date);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0] === dateStr;
+      });
+      const wholeDayDisabled = dayOverrides.some(o => !o.start_time);
+      const partialDisabled = dayOverrides.filter(o => o.start_time && o.end_time).map(o => ({
+        start: o.start_time.substring(0,5), end: o.end_time.substring(0,5)
+      }));
+
+      // Find bookings for this date
+      const dayBookings = bookings.filter(b => b.preferred_date === dateStr).map(b => ({
+        start: b.preferred_time.substring(0,5), end: b.preferred_end_time.substring(0,5)
+      }));
+
+      // Generate slots
+      for (let mins = BUSINESS_START; mins <= LATEST_START; mins += SLOT_INTERVAL) {
+        const startTimeStr = minutesToTime(mins);
+        const endTimeStr = minutesToTime(mins + CALL_DURATION);
+
+        // Check if disabled
+        let isDisabled = wholeDayDisabled;
+        if (!isDisabled && rangeListOverlap(startTimeStr, endTimeStr, partialDisabled)) {
+          isDisabled = true;
+        }
+
+        // Calculate bookings overlapping this slot
+        let booked_count = 0;
+        dayBookings.forEach(b => {
+          if (rangesOverlap(timeToMinutes(startTimeStr), timeToMinutes(endTimeStr), timeToMinutes(b.start), timeToMinutes(b.end))) {
+            booked_count++;
+          }
+        });
+
+        const remaining_capacity = Math.max(0, max_bookings - booked_count);
+        let status = 'Available';
+
+        if (isDisabled) {
+          status = 'Disabled';
+          stats.disabled++;
+        } else if (remaining_capacity === 0) {
+          status = 'Full';
+          stats.full++;
+        } else if (booked_count > 0) {
+          status = 'Booked';
+          stats.booked++;
+        } else {
+          stats.available++;
+        }
+
+        stats.total++;
+
+        // Use a composite ID since it's virtual
+        const idStr = `${dateStr}_${startTimeStr}`;
+
+        allSlots.push({
+          id: idStr,
+          date: dateStr,
+          start_time: startTimeStr,
+          end_time: endTimeStr,
+          max_bookings,
+          booked_count,
+          remaining_capacity,
+          status,
+          is_disabled: isDisabled,
+        });
+      }
     });
-
-    const stats = {
-      total: data.length,
-      available: data.filter(s => s.status === 'Available').length,
-      booked: data.filter(s => s.status === 'Booked').length,
-      full: data.filter(s => s.status === 'Full').length,
-      disabled: data.filter(s => s.status === 'Disabled').length,
-    };
 
     res.status(200).json({
       success: true,
-      count: data.length,
-      data,
+      count: allSlots.length,
+      data: allSlots,
       stats
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ─── Create Slot ─────────────────────────────────────────────────────────────
-exports.createSlot = async (req, res, next) => {
-  try {
-    const { date, start_time, end_time, max_bookings } = req.body;
-
-    if (!date || !start_time || !end_time) {
-      return res.status(400).json({ success: false, message: "Date, start time, and end time are required." });
-    }
-
-    const startMins = timeToMinutes(start_time);
-    const endMins = timeToMinutes(end_time);
-
-    if (startMins >= endMins) {
-      return res.status(400).json({ success: false, message: "End time must be after start time." });
-    }
-
-    if (startMins < BUSINESS_START || endMins > BUSINESS_END) {
-      return res.status(400).json({ success: false, message: "Time must be within business hours (09:00 AM - 09:00 PM)." });
-    }
-
-    // Check overlap with existing slots
-    const overlapRes = await pool.query(
-      `SELECT id FROM admin_slots
-       WHERE date = $1
-         AND start_time < $3 AND end_time > $2`,
-      [date, start_time, end_time]
-    );
-
-    if (overlapRes.rows.length > 0) {
-      return res.status(400).json({ success: false, message: "This slot overlaps with an existing slot on the same date." });
-    }
-
-    const result = await pool.query(
-      `INSERT INTO admin_slots (date, start_time, end_time, max_bookings)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [date, start_time, end_time, max_bookings || 1]
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Slot created successfully.",
-      data: result.rows[0]
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ─── Update Slot ─────────────────────────────────────────────────────────────
-exports.updateSlot = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { date, start_time, end_time, max_bookings } = req.body;
-
-    const existing = await pool.query("SELECT * FROM admin_slots WHERE id = $1", [id]);
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Slot not found." });
-    }
-
-    const newDate = date ?? existing.rows[0].date;
-    const newStart = start_time ?? existing.rows[0].start_time;
-    const newEnd = end_time ?? existing.rows[0].end_time;
-    const newMax = max_bookings ?? existing.rows[0].max_bookings;
-
-    const startMins = timeToMinutes(newStart);
-    const endMins = timeToMinutes(newEnd);
-
-    if (startMins >= endMins) {
-      return res.status(400).json({ success: false, message: "End time must be after start time." });
-    }
-
-    const overlapRes = await pool.query(
-      `SELECT id FROM admin_slots
-       WHERE date = $1
-         AND id != $4
-         AND start_time < $3 AND end_time > $2`,
-      [newDate, newStart, newEnd, id]
-    );
-
-    if (overlapRes.rows.length > 0) {
-      return res.status(400).json({ success: false, message: "This time range overlaps with another existing slot." });
-    }
-
-    const result = await pool.query(
-      `UPDATE admin_slots
-       SET date = $1, start_time = $2, end_time = $3, max_bookings = $4
-       WHERE id = $5 RETURNING *`,
-      [newDate, newStart, newEnd, newMax, id]
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Slot updated.",
-      data: result.rows[0]
     });
   } catch (err) {
     next(err);
@@ -228,21 +145,29 @@ exports.updateSlot = async (req, res, next) => {
 // ─── Enable Slot ─────────────────────────────────────────────────────────────
 exports.enableSlot = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { date, start_time, end_time } = req.body;
+    
+    if (!date || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: "Date, start time, and end time are required." });
+    }
 
+    // Enabling a slot means deleting the corresponding availability_override
     const result = await pool.query(
-      "UPDATE admin_slots SET is_disabled = false WHERE id = $1 RETURNING *",
-      [id]
+      `DELETE FROM availability_overrides 
+       WHERE date = $1 
+         AND start_time = $2 
+         AND end_time = $3
+       RETURNING *`,
+      [date, start_time, end_time]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Slot not found." });
+      return res.status(404).json({ success: false, message: "No exact disable override found for this slot." });
     }
 
     res.status(200).json({
       success: true,
       message: "Slot enabled.",
-      data: result.rows[0]
     });
   } catch (err) {
     next(err);
@@ -252,57 +177,34 @@ exports.enableSlot = async (req, res, next) => {
 // ─── Disable Slot ────────────────────────────────────────────────────────────
 exports.disableSlot = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { date, start_time, end_time } = req.body;
+    
+    if (!date || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: "Date, start time, and end time are required." });
+    }
 
-    const result = await pool.query(
-      "UPDATE admin_slots SET is_disabled = true WHERE id = $1 RETURNING *",
-      [id]
+    // Check if it's already disabled by overlapping override
+    const overlapRes = await pool.query(
+      `SELECT id FROM availability_overrides
+       WHERE date = $1
+         AND (start_time IS NULL OR (start_time <= $3 AND end_time >= $2))`,
+      [date, start_time, end_time]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Slot not found." });
+    if (overlapRes.rows.length > 0) {
+      return res.status(400).json({ success: false, message: "This slot is already disabled." });
     }
+
+    const result = await pool.query(
+      `INSERT INTO availability_overrides (date, start_time, end_time, reason)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [date, start_time, end_time, "Admin manually disabled slot"]
+    );
 
     res.status(200).json({
       success: true,
       message: "Slot disabled.",
       data: result.rows[0]
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ─── Delete Slot ─────────────────────────────────────────────────────────────
-exports.deleteSlot = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    // Check for active bookings before deleting
-    const slotRes = await pool.query("SELECT * FROM admin_slots WHERE id = $1", [id]);
-    if (slotRes.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Slot not found." });
-    }
-    const slot = slotRes.rows[0];
-
-    const bookingsRes = await pool.query(
-      `SELECT id FROM discovery_bookings
-       WHERE preferred_date = $1::text
-         AND status IN ('pending', 'accepted')
-         AND preferred_time < $3 
-         AND COALESCE(preferred_end_time, to_char((preferred_time::time + interval '60 minutes')::time, 'HH24:MI')) > $2`,
-      [slot.date, slot.start_time, slot.end_time]
-    );
-
-    if (bookingsRes.rows.length > 0) {
-      return res.status(400).json({ success: false, message: "Cannot delete a slot with existing bookings." });
-    }
-
-    await pool.query("DELETE FROM admin_slots WHERE id = $1", [id]);
-
-    res.status(200).json({
-      success: true,
-      message: "Slot deleted successfully."
     });
   } catch (err) {
     next(err);

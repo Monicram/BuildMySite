@@ -1,7 +1,7 @@
 import adminApi from './api';
 
 export interface Slot {
-  id: number;
+  id: string; // Virtual ID (date_time)
   date: string;
   start_time: string;
   end_time: string;
@@ -10,7 +10,6 @@ export interface Slot {
   booked_count: number;
   remaining_capacity: number;
   status: 'Available' | 'Booked' | 'Full' | 'Disabled';
-  created_at: string;
 }
 
 export const slotService = {
@@ -19,27 +18,11 @@ export const slotService = {
     return { data: data.data, stats: data.stats };
   },
 
-  create: async (payload: { date: string; start_time: string; end_time: string; max_bookings: number }): Promise<Slot> => {
-    const { data } = await adminApi.post('/slots', payload);
-    return data.data;
+  enable: async (payload: { date: string; start_time: string; end_time: string }): Promise<void> => {
+    await adminApi.patch('/slots/enable', payload);
   },
 
-  update: async (id: number, payload: { date?: string; start_time?: string; end_time?: string; max_bookings?: number }): Promise<Slot> => {
-    const { data } = await adminApi.put(`/slots/${id}`, payload);
-    return data.data;
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await adminApi.delete(`/slots/${id}`);
-  },
-
-  enable: async (id: number): Promise<Slot> => {
-    const { data } = await adminApi.patch(`/slots/${id}/enable`);
-    return data.data;
-  },
-
-  disable: async (id: number): Promise<Slot> => {
-    const { data } = await adminApi.patch(`/slots/${id}/disable`);
-    return data.data;
+  disable: async (payload: { date: string; start_time: string; end_time: string }): Promise<void> => {
+    await adminApi.patch('/slots/disable', payload);
   },
 };
