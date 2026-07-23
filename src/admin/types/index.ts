@@ -59,7 +59,7 @@ export interface EnquiriesResponse {
 }
 
 // ─── Booking ───────────────────────────────────────────────
-export type BookingStatus = 'pending' | 'accepted' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
+export type BookingStatus = 'pending' | 'accepted' | 'rejected' | 'rescheduled';
 
 export interface Booking {
   id: number;

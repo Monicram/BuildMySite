@@ -94,7 +94,7 @@ export const dashboardService = {
       accepted: '#10B981',
       rejected: '#EF4444',
       rescheduled: '#3B82F6',
-      completed: '#D4AF37',
+
     };
 
     return Object.entries(statusGroups).map(([name, value]) => ({

@@ -102,7 +102,7 @@ export default function TimeScroller({ availability, value, onChange, disabled }
       const endMins = startMins + CALL_DURATION;
       const endTimeStr = minutesToTime(endMins);
 
-      if (rangesOverlap(timeStr, endTimeStr, availability.disabledRanges)) return false;
+      if (availability.disabledRanges.some(r => r.start === timeStr && r.end === endTimeStr)) return false;
       if (rangesOverlap(timeStr, endTimeStr, availability.bookedRanges)) return false;
       return true;
     });

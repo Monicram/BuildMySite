@@ -119,7 +119,7 @@ exports.disableTime = async (req, res, next) => {
          WHERE date = $1
            AND start_time IS NOT NULL
            AND end_time IS NOT NULL
-           AND start_time < $3 AND end_time > $2
+           AND start_time = $2 AND end_time = $3
          FOR UPDATE`,
         [date, start_time, end_time]
       );
@@ -221,7 +221,7 @@ exports.updateOverride = async (req, res, next) => {
            AND id != $4
            AND start_time IS NOT NULL
            AND end_time IS NOT NULL
-           AND start_time < $3 AND end_time > $2`,
+           AND start_time = $2 AND end_time = $3`,
         [newDate, newStart, newEnd, id]
       );
       if (overlapRes.rows.length > 0) {

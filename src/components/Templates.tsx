@@ -4,62 +4,56 @@ import TemplateModal, { TemplateData } from './TemplateModal';
 
 const templates: TemplateData[] = [
   {
-    name: 'Prestige',
-    category: 'Corporate & Professional',
+    name: 'Fitness',
+    category: 'Health & Wellness',
     description:
-      'Commanding, structured layout ideal for law firms, consultancies, and financial services. Exudes authority and trust.',
-    image:
-      'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=700',
-    pages: '7 pages',
+      'Clean, energetic design for gyms, personal trainers, and fitness studios.',
+    image: '/images/fitness.jpg',
+    pages: '6 pages',
     highlight: 'Most Popular',
   },
   {
-    name: 'Bloom',
-    category: 'Health, Beauty & Wellness',
+    name: 'Bakery',
+    category: 'Food & Retail',
     description:
-      'Soft, elevated design for spas, salons, and wellness brands. Prioritises appointment booking and photography.',
-    image:
-      'https://images.pexels.com/photos/3997986/pexels-photo-3997986.jpeg?auto=compress&cs=tinysrgb&w=700',
-    pages: '6 pages',
-    highlight: null,
-  },
-  {
-    name: 'Commerce',
-    category: 'E-Commerce & Retail',
-    description:
-      'Conversion-focused storefront with product grids, cart, checkout, and integrated payment flows.',
-    image:
-      'https://images.pexels.com/photos/5632388/pexels-photo-5632388.jpeg?auto=compress&cs=tinysrgb&w=700',
+      'Warm, inviting storefront for bakeries, cafes, and local food businesses.',
+    image: '/images/bakery.jpg',
     pages: '10+ pages',
     highlight: 'Best for Retail',
   },
   {
-    name: 'Folio',
-    category: 'Creative & Portfolio',
+    name: 'Restaurant',
+    category: 'Hospitality & Dining',
     description:
-      'Immersive full-screen portfolio for photographers, designers, and artists who lead with visuals.',
-    image:
-      'https://images.pexels.com/photos/1779487/pexels-photo-1779487.jpeg?auto=compress&cs=tinysrgb&w=700',
-    pages: '5 pages',
-    highlight: null,
-  },
-  {
-    name: 'Reserve',
-    category: 'Hospitality & Restaurants',
-    description:
-      'Elegant booking-first template for restaurants, hotels, and event venues with table reservation integration.',
-    image:
-      'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=700',
+      'Elegant booking-first template for restaurants, complete with menus and reservations.',
+    image: '/images/restaurant.jpg',
     pages: '6 pages',
     highlight: null,
   },
   {
-    name: 'Launch',
-    category: 'Startup & SaaS',
+    name: 'Portfolio',
+    category: 'Creative & Personal',
     description:
-      'High-conversion landing page with feature showcases, pricing tiers, and CTA optimisation for digital products.',
-    image:
-      'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=700',
+      'Immersive full-screen portfolio for showcasing your best work.',
+    image: '/images/portfolio.jpg',
+    pages: '5 pages',
+    highlight: null,
+  },
+  {
+    name: 'Business',
+    category: 'Corporate & Professional',
+    description:
+      'Commanding, structured layout ideal for corporate offices and consulting firms.',
+    image: '/images/business.jpg',
+    pages: '7 pages',
+    highlight: null,
+  },
+  {
+    name: 'School',
+    category: 'Education',
+    description:
+      'Clean, informative website for a local school, featuring notice boards, admission details, and galleries.',
+    image: '/images/school.jpg',
     pages: '4 pages',
     highlight: 'Fastest Build',
   },

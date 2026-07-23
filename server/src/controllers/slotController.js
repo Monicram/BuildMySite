@@ -109,8 +109,8 @@ exports.getAllSlots = async (req, res, next) => {
         const endTimeStr = minutesToTime(mins + CALL_DURATION);
 
         let isDisabled = wholeDayDisabled;
-        if (!isDisabled && rangeListOverlap(startTimeStr, endTimeStr, partialDisabled)) {
-          isDisabled = true;
+        if (!isDisabled) {
+          isDisabled = partialDisabled.some(o => o.start === startTimeStr && o.end === endTimeStr);
         }
 
         let booked_count = 0;
@@ -208,7 +208,7 @@ exports.disableSlot = async (req, res, next) => {
     const overlapRes = await pool.query(
       `SELECT id FROM availability_overrides
        WHERE date = $1
-         AND (start_time IS NULL OR (start_time <= $3 AND end_time >= $2))`,
+         AND (start_time IS NULL OR (start_time = $2 AND end_time = $3))`,
       [date, start_time, end_time]
     );
 

@@ -4,59 +4,34 @@ import PortfolioModal, { ProjectData } from './PortfolioModal';
 
 const projects: ProjectData[] = [
   {
-    name: 'Meridian Law Group',
-    category: 'Legal Services',
+    name: 'Fitness',
+    category: 'Health & Wellness',
     description:
-      'A commanding corporate site for a boutique law firm, featuring case study pages, team profiles, and a consultation booking system.',
-    image:
-      'https://images.pexels.com/photos/5668859/pexels-photo-5668859.jpeg?auto=compress&cs=tinysrgb&w=700',
-    tech: ['Custom CMS', 'Booking System', 'SEO'],
-    result: '+340% organic enquiries',
+      'A high-conversion gym website with class schedules, membership sign-ups, and trainer profiles.',
+    image: '/images/fitness.jpg',
+    tech: ['Landing Page', 'Schedules', 'Memberships'],
+    result: '2.4x sign-up rate',
     tier: 'Growth',
   },
   {
-    name: 'Luma Skin Studio',
-    category: 'Beauty & Aesthetics',
+    name: 'Bakery',
+    category: 'Food & Retail',
     description:
-      'A luxurious treatment-booking website for a London aesthetics clinic, with service menus, before/after gallery, and automated reminders.',
-    image:
-      'https://images.pexels.com/photos/3997993/pexels-photo-3997993.jpeg?auto=compress&cs=tinysrgb&w=700',
-    tech: ['Appointment Booking', 'Gallery', 'WhatsApp'],
-    result: '3x appointment volume',
-    tier: 'Pro',
-  },
-  {
-    name: 'Nomad & Co.',
-    category: 'E-Commerce / Fashion',
-    description:
-      'A full e-commerce storefront for an independent clothing brand — product filtering, cart, Stripe checkout, and order confirmation emails.',
-    image:
-      'https://images.pexels.com/photos/5632388/pexels-photo-5632388.jpeg?auto=compress&cs=tinysrgb&w=700',
+      'A full e-commerce storefront for an independent bakery brand — product filtering, cart, and order checkout.',
+    image: '/images/bakery.jpg',
     tech: ['E-Commerce', 'Stripe', 'Automated Emails'],
     result: '₹68L first-year revenue',
-    tier: 'Growth',
-  },
-  {
-    name: 'The Copper Kettle',
-    category: 'Restaurant & Hospitality',
-    description:
-      'An elegant restaurant site with online table reservations, seasonal menu updates, events calendar, and gift voucher sales.',
-    image:
-      'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=700',
-    tech: ['Table Booking', 'Events', 'Menu CMS'],
-    result: '60% fewer no-shows',
-    tier: 'Pro',
-  },
-  {
-    name: 'Orion Analytics',
-    category: 'SaaS / Technology',
-    description:
-      'A high-conversion SaaS landing page with animated feature highlights, pricing tiers, trial sign-up flow, and live chat integration.',
-    image:
-      'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=700',
-    tech: ['Landing Page', 'Live Chat', 'Analytics'],
-    result: '2.4x trial sign-up rate',
     tier: 'Starter',
+  },
+  {
+    name: 'Portfolio',
+    category: 'Creative Design',
+    description:
+      'A luxurious portfolio website for a creative professional, with project galleries and a contact form.',
+    image: '/images/portfolio.jpg',
+    tech: ['Gallery', 'Contact Form', 'Responsive'],
+    result: '3x project inquiries',
+    tier: 'Pro',
   },
 ];
 

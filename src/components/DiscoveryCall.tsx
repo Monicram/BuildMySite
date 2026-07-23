@@ -96,7 +96,7 @@ export default function DiscoveryCall() {
       const timeStr = time.substring(0, 5);
       const endTime = minutesToTime(timeToMinutes(timeStr) + CALL_DURATION);
 
-      if (rangesOverlap(timeStr, endTime, avail.disabledRanges)) {
+      if (avail.disabledRanges.some(r => r.start === timeStr && r.end === endTime)) {
         return 'This time overlaps a disabled period. Please choose another time.';
       }
       if (rangesOverlap(timeStr, endTime, avail.bookedRanges)) {

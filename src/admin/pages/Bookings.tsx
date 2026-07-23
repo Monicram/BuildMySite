@@ -11,7 +11,7 @@ import { bookingService } from '../services/booking';
 import { formatDate, formatDateTime, getStatusColor, capitalize } from '../utils';
 import type { Booking, BookingStatus } from '../types';
 
-const STATUSES: BookingStatus[] = ['pending', 'accepted', 'rejected', 'rescheduled', 'completed'];
+const STATUSES: BookingStatus[] = ['pending', 'accepted', 'rejected', 'rescheduled'];
 
 // ─── Time formatting ──────────────────────────────────────────────────────────
 function formatDisplayTime(time?: string | null): string {
