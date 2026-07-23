@@ -1,12 +1,11 @@
 const pool = require("../config/database").pool;
 
-// ─── Get Approved Reviews (Public) ───────────────────────────────────────────
+// ─── Get All Reviews (Public) ───────────────────────────────────────────
 exports.getPublicReviews = async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT id, name, company, role, photo_url, rating, message, created_at
+      `SELECT id, name, company, role, rating, message, created_at
        FROM reviews
-       WHERE status = 'approved'
        ORDER BY created_at DESC`
     );
 
@@ -23,7 +22,7 @@ exports.getPublicReviews = async (req, res, next) => {
 // ─── Submit Review (Public) ──────────────────────────────────────────────────
 exports.createReview = async (req, res, next) => {
   try {
-    const { name, company, role, photo_url, rating, message, booking_id } = req.body;
+    const { name, company, role, rating, message } = req.body;
 
     if (!name || !rating || !message) {
       return res.status(400).json({
@@ -41,23 +40,21 @@ exports.createReview = async (req, res, next) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO reviews (name, company, role, photo_url, rating, message, booking_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+      `INSERT INTO reviews (name, company, role, rating, message)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
       [
         name.trim(),
         company?.trim() || null,
         role?.trim() || null,
-        photo_url || null,
         ratingNum,
         message.trim(),
-        booking_id || null,
       ]
     );
 
     res.status(201).json({
       success: true,
-      message: "Thank you! Your review has been submitted and is pending approval.",
+      message: "Thank you! Your review has been submitted.",
       data: result.rows[0],
     });
   } catch (err) {
@@ -86,7 +83,7 @@ exports.getAllReviews = async (req, res, next) => {
 exports.updateReview = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, company, role, photo_url, rating, message, status } = req.body;
+    const { name, company, role, rating, message } = req.body;
 
     const existing = await pool.query("SELECT * FROM reviews WHERE id = $1", [id]);
     if (existing.rows.length === 0) {
@@ -103,27 +100,18 @@ exports.updateReview = async (req, res, next) => {
       });
     }
 
-    if (status && !["pending", "approved", "rejected"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status.",
-      });
-    }
-
     const result = await pool.query(
       `UPDATE reviews
-       SET name = $1, company = $2, role = $3, photo_url = $4,
-           rating = $5, message = $6, status = $7, updated_at = NOW()
-       WHERE id = $8
+       SET name = $1, company = $2, role = $3,
+           rating = $4, message = $5, updated_at = NOW()
+       WHERE id = $6
        RETURNING *`,
       [
         name ?? current.name,
         company !== undefined ? company : current.company,
         role !== undefined ? role : current.role,
-        photo_url !== undefined ? photo_url : current.photo_url,
         newRating,
         message ?? current.message,
-        status ?? current.status,
         id,
       ]
     );

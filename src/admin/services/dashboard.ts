@@ -7,15 +7,8 @@ import type {
   BookingsResponse,
   MonthlyDataPoint,
   StatusDistribution,
+  DashboardStats,
 } from '../types';
-
-export interface DashboardStats {
-  todaysBookings: number;
-  upcomingCalls: number;
-  availableTimeMins: number;
-  bookedTimeMins: number;
-  disabledTimeMins: number;
-}
 
 export const dashboardService = {
   getStats: async (): Promise<DashboardStats> => {

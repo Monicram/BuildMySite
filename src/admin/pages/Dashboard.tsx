@@ -51,13 +51,6 @@ const Dashboard = () => {
     select: d => d.data.slice(0, 5),
   });
 
-  const formatMins = (mins: number) => {
-    if (mins === undefined || isNaN(mins)) return '—';
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}h ${m}m`;
-  };
-
   const statCards = [
     {
       title: "Today's Bookings",
@@ -66,26 +59,26 @@ const Dashboard = () => {
       color: 'gold' as const,
     },
     {
-      title: 'Upcoming Discovery Calls',
-      value: stats?.upcomingCalls ?? '—',
+      title: 'Total Slots (30d)',
+      value: stats?.totalSlots ?? '—',
       icon: Calendar,
       color: 'blue' as const,
     },
     {
-      title: 'Available Time (30d)',
-      value: formatMins(stats?.availableTimeMins as number),
+      title: 'Available (30d)',
+      value: stats?.availableSlots ?? '—',
       icon: CheckCircle,
       color: 'green' as const,
     },
     {
-      title: 'Booked Time (30d)',
-      value: formatMins(stats?.bookedTimeMins as number),
+      title: 'Booked (30d)',
+      value: stats?.bookedSlots ?? '—',
       icon: Clock,
       color: 'purple' as const,
     },
     {
-      title: 'Disabled Time (30d)',
-      value: formatMins(stats?.disabledTimeMins as number),
+      title: 'Disabled (30d)',
+      value: stats?.disabledSlots ?? '—',
       icon: XCircle,
       color: 'red' as const,
     },

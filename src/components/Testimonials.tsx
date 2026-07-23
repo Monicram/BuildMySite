@@ -7,7 +7,6 @@ type Review = {
   name: string;
   role: string | null;
   company: string | null;
-  photo_url: string | null;
   rating: number;
   message: string;
 };

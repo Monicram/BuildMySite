@@ -115,7 +115,9 @@ exports.getAllSlots = async (req, res, next) => {
 
         let booked_count = 0;
         dayBookings.forEach(b => {
-          if (rangesOverlap(timeToMinutes(startTimeStr), timeToMinutes(endTimeStr), timeToMinutes(b.start), timeToMinutes(b.end))) {
+          const bStartMins = timeToMinutes(b.start);
+          const bAssignedMins = Math.floor(bStartMins / SLOT_INTERVAL) * SLOT_INTERVAL;
+          if (bAssignedMins === mins) {
             booked_count++;
           }
         });

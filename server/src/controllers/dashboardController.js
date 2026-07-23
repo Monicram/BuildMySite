@@ -1,4 +1,12 @@
 const pool = require("../config/database").pool;
+const {
+  timeToMinutes,
+  minutesToTime,
+  BUSINESS_START,
+  LATEST_START,
+  SLOT_INTERVAL,
+  CALL_DURATION,
+} = require("../utils/availabilityConstants");
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
 exports.getDashboardStats = async (req, res, next) => {
@@ -19,55 +27,111 @@ exports.getDashboardStats = async (req, res, next) => {
     );
     const upcomingCalls = parseInt(upcomingRes.rows[0].count, 10);
 
-    // To calculate "Available Time", "Booked Time", and "Disabled Time", we can approximate 
-    // for a specific period (e.g., next 30 days) or just return the total blocked units we have.
-    // The user requested: "Available Time, Booked Time, Disabled Time".
-    // Since availability is open, "Available Time" is virtually infinite, 
-    // but let's calculate it for the next 30 days.
-    // 30 days * 12 hours/day * 60 mins = 21,600 minutes total.
+    // 3. Generate 30 days slots and sum up stats
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const dates = [];
+    for (let i = 0; i <= 29; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        dates.push(d.toISOString().split('T')[0]);
+      }
+    }
 
-    // 3. Booked Time (in minutes) for the next 30 days
-    const bookedTimeRes = await pool.query(
-      `SELECT COUNT(*) FROM discovery_bookings 
-       WHERE status IN ('pending', 'accepted') 
-         AND preferred_date::DATE >= CURRENT_DATE 
-         AND preferred_date::DATE <= CURRENT_DATE + INTERVAL '30 days'`
-    );
-    // Each booking is 60 mins
-    const bookedTimeMins = parseInt(bookedTimeRes.rows[0].count, 10) * 60;
+    if (dates.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          todaysBookings,
+          upcomingCalls,
+          totalSlots: 0,
+          availableSlots: 0,
+          bookedSlots: 0,
+          disabledSlots: 0,
+        }
+      });
+    }
 
-    // 4. Disabled Time (in minutes) for the next 30 days
+    const minDateStr = dates[0];
+    const maxDateStr = dates[dates.length - 1];
+
     const overridesRes = await pool.query(
-      `SELECT start_time, end_time FROM availability_overrides 
-       WHERE date::DATE >= CURRENT_DATE 
-         AND date::DATE <= CURRENT_DATE + INTERVAL '30 days'`
+      `SELECT * FROM availability_overrides WHERE date >= $1 AND date <= $2`,
+      [minDateStr, maxDateStr]
     );
-    
-    let disabledTimeMins = 0;
-    overridesRes.rows.forEach(row => {
-      if (row.start_time === null) {
-        // Whole day disabled = 12 hours = 720 mins
-        disabledTimeMins += 720;
-      } else {
-        const [sh, sm] = row.start_time.split(':').map(Number);
-        const [eh, em] = row.end_time.split(':').map(Number);
-        const startMins = sh * 60 + sm;
-        const endMins = eh * 60 + em;
-        disabledTimeMins += (endMins - startMins);
+    const overrides = overridesRes.rows;
+
+    const bookingsRes = await pool.query(
+      `SELECT preferred_date, preferred_time
+       FROM discovery_bookings
+       WHERE preferred_date >= $1 AND preferred_date <= $2
+         AND status IN ('pending', 'accepted', 'rescheduled')
+         AND preferred_time IS NOT NULL`,
+      [minDateStr, maxDateStr]
+    );
+    const bookings = bookingsRes.rows;
+
+    let totalSlots = 0, availableSlots = 0, bookedSlots = 0, disabledSlots = 0;
+
+    dates.forEach(dateStr => {
+      const dayOverrides = overrides.filter(o => {
+        const d = new Date(o.date);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0] === dateStr;
+      });
+      const wholeDayDisabled = dayOverrides.some(o => !o.start_time);
+      const partialDisabled = dayOverrides.filter(o => o.start_time && o.end_time).map(o => ({
+        start: o.start_time.substring(0,5), end: o.end_time.substring(0,5)
+      }));
+
+      const dayBookings = bookings.filter(b => {
+        const d = new Date(b.preferred_date);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0] === dateStr;
+      }).map(b => ({
+        start: b.preferred_time.substring(0,5)
+      }));
+
+      for (let mins = BUSINESS_START; mins <= LATEST_START; mins += SLOT_INTERVAL) {
+        const startTimeStr = minutesToTime(mins);
+        const endTimeStr = minutesToTime(mins + CALL_DURATION);
+
+        let isDisabled = wholeDayDisabled;
+        if (!isDisabled) {
+          isDisabled = partialDisabled.some(o => o.start === startTimeStr && o.end === endTimeStr);
+        }
+
+        let isBooked = false;
+        dayBookings.forEach(b => {
+          const bStartMins = timeToMinutes(b.start);
+          const bAssignedMins = Math.floor(bStartMins / SLOT_INTERVAL) * SLOT_INTERVAL;
+          if (bAssignedMins === mins) {
+            isBooked = true;
+          }
+        });
+
+        totalSlots++;
+        if (isDisabled) {
+          disabledSlots++;
+        } else if (isBooked) {
+          bookedSlots++;
+        } else {
+          availableSlots++;
+        }
       }
     });
-
-    const totalPeriodMins = 30 * 12 * 60; // 30 days * 12 hours
-    const availableTimeMins = totalPeriodMins - bookedTimeMins - disabledTimeMins;
 
     res.status(200).json({
       success: true,
       data: {
         todaysBookings,
         upcomingCalls,
-        bookedTimeMins,
-        disabledTimeMins,
-        availableTimeMins: Math.max(0, availableTimeMins)
+        totalSlots,
+        availableSlots,
+        bookedSlots,
+        disabledSlots
       }
     });
   } catch (err) {

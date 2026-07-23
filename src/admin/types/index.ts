@@ -87,9 +87,10 @@ export interface BookingsResponse {
 export interface DashboardStats {
   todaysBookings: number;
   upcomingCalls: number;
-  availableTimeMins: number;
-  bookedTimeMins: number;
-  disabledTimeMins: number;
+  totalSlots: number;
+  availableSlots: number;
+  bookedSlots: number;
+  disabledSlots: number;
 }
 
 // ─── Chart Data ────────────────────────────────────────────

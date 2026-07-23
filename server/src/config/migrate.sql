@@ -74,14 +74,29 @@ CREATE TABLE IF NOT EXISTS reviews (
   name       VARCHAR(255) NOT NULL,
   company    VARCHAR(255),
   role       VARCHAR(255),
-  photo_url  TEXT,
   rating     INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   message    TEXT NOT NULL,
-  status     VARCHAR(50) DEFAULT 'pending',
-  booking_id INTEGER,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Drop deprecated columns from reviews table if they exist
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reviews' AND column_name = 'photo_url') THEN
+    ALTER TABLE reviews DROP COLUMN photo_url;
+    RAISE NOTICE 'Dropped photo_url from reviews';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reviews' AND column_name = 'booking_id') THEN
+    ALTER TABLE reviews DROP COLUMN booking_id;
+    RAISE NOTICE 'Dropped booking_id from reviews';
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reviews' AND column_name = 'status') THEN
+    ALTER TABLE reviews DROP COLUMN status;
+    RAISE NOTICE 'Dropped status from reviews';
+  END IF;
+END
+$$;
 
 -- 7. Create admin_slots table
 CREATE TABLE IF NOT EXISTS admin_slots (
