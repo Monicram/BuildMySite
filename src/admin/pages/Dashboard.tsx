@@ -34,6 +34,7 @@ const Dashboard = () => {
     queryKey: ['dashboard-stats'],
     queryFn: dashboardService.getStats,
     staleTime: 30_000,
+    refetchInterval: 10000,
   });
 
   const { data: recentEnquiries, isLoading: enquiriesLoading } = useQuery({

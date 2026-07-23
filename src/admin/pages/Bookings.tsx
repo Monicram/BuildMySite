@@ -151,6 +151,7 @@ const Bookings = () => {
     queryKey: ['bookings'],
     queryFn: bookingService.getAll,
     staleTime: 30_000,
+    refetchInterval: 10000,
   });
   const bookings = data?.data ?? [];
 
@@ -164,6 +165,8 @@ const Bookings = () => {
       });
       setSelectedBooking(prev => (prev?.id === updated.id ? updated : prev));
       setRescheduleTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
   });
 
@@ -175,6 +178,8 @@ const Bookings = () => {
         return { ...old, data: old.data.filter((b: Booking) => b.id !== id), count: old.count - 1 };
       });
       if (selectedBooking?.id === id) setSelectedBooking(null);
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
   });
 

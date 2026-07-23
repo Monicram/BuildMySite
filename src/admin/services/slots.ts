@@ -9,7 +9,7 @@ export interface Slot {
   is_disabled: boolean;
   booked_count: number;
   remaining_capacity: number;
-  status: 'Available' | 'Booked' | 'Full' | 'Disabled';
+  status: 'Available' | 'Booked' | 'Disabled';
 }
 
 export const slotService = {

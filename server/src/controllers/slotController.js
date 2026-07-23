@@ -96,7 +96,11 @@ exports.getAllSlots = async (req, res, next) => {
         start: o.start_time.substring(0,5), end: o.end_time.substring(0,5)
       }));
 
-      const dayBookings = bookings.filter(b => b.preferred_date === dateStr).map(b => ({
+      const dayBookings = bookings.filter(b => {
+        const d = new Date(b.preferred_date);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0] === dateStr;
+      }).map(b => ({
         start: b.preferred_time.substring(0,5), end: b.preferred_end_time.substring(0,5)
       }));
 
@@ -123,18 +127,12 @@ exports.getAllSlots = async (req, res, next) => {
           status = 'Disabled';
           stats.disabled++;
         } else {
-          if (remaining_capacity === 0) {
-            status = 'Full';
-            stats.full++;
-          } else if (booked_count > 0) {
+          if (booked_count > 0) {
             status = 'Booked';
+            stats.booked++;
           } else {
             status = 'Available';
             stats.available++;
-          }
-          
-          if (booked_count > 0) {
-            stats.booked++;
           }
         }
 

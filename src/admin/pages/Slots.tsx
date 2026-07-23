@@ -4,8 +4,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar as CalendarIcon, Clock, CheckCircle, Ban, Users, Eye, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Calendar as CalendarIcon, Clock, CheckCircle, Ban, Users, XCircle } from 'lucide-react';
 import DataTable, { type Column } from '../components/DataTable';
 import { slotService, type Slot } from '../services/slots';
 import { formatDate } from '../utils';
@@ -49,7 +48,6 @@ type DateRangeFilter = 'Today' | 'Tomorrow' | 'This Week' | 'Next 30 Days' | 'Cu
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Slots = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('Next 30 Days');
   const [customStart, setCustomStart] = useState('');
@@ -203,14 +201,6 @@ const Slots = () => {
           >
             {row.is_disabled ? <><CheckCircle size={14} /> Enable</> : <><Ban size={14} /> Disable</>}
           </button>
-          
-          <button
-            onClick={() => navigate(`/admin/bookings?date=${row.date}&time=${row.start_time}`)}
-            title="View Booking Details"
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors flex items-center gap-1.5"
-          >
-            <Eye size={14} /> View
-          </button>
         </div>
       ),
     },
@@ -251,11 +241,10 @@ const Slots = () => {
       </div>
 
       {/* Dashboard Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard title="Total Slots" value={stats.total} icon={CalendarIcon} colorClass="bg-obsidian-700/50 text-obsidian-300" />
         <StatCard title="Available" value={stats.available} icon={CheckCircle} colorClass="bg-emerald-500/10 text-emerald-400" />
         <StatCard title="Booked" value={stats.booked} icon={Users} colorClass="bg-blue-500/10 text-blue-400" />
-        <StatCard title="Full" value={stats.full} icon={Clock} colorClass="bg-amber-500/10 text-amber-400" />
         <StatCard title="Disabled" value={stats.disabled} icon={Ban} colorClass="bg-red-500/10 text-red-400" />
       </div>
 
@@ -266,7 +255,7 @@ const Slots = () => {
           data={slots}
           isLoading={isLoading}
           searchKeys={['date', 'start_time', 'status'] as never[]}
-          filterOptions={[{ key: 'status' as never, label: 'All Statuses', options: ['Available', 'Booked', 'Full', 'Disabled'] }]}
+          filterOptions={[{ key: 'status' as never, label: 'All Statuses', options: ['Available', 'Booked', 'Disabled'] }]}
           pageSize={10}
           emptyMessage="No working slots found for this date range."
         />
